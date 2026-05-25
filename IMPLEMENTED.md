@@ -275,3 +275,19 @@ Acceptance criteria met:
 - The repository now has a clear, documented durability and recovery story.
 Notes:
 - JSON exports include media metadata only; full recovery still needs the `media/items/` filesystem tree alongside the database backup.
+
+## SEC-018 - Quality hardening, reviewability, and repository polish
+Completed: 2026-05-26
+Summary:
+- Verified the project end to end after the full section backlog with current docs, checks, and transport behavior.
+- Polished stale repository guidance so `README.md`, `AGENTS.md`, and the transport docs match the implemented product.
+- Re-ran the full Rust quality gate and the current iOS fallback validation path.
+- Left the repository in a clean state for future section-by-section work.
+Acceptance criteria met:
+- `README.md` is current.
+- `AGENTS.md` is current.
+- `docs/API.md`, `docs/MCP.md`, `docs/IOS.md`, and `docs/TAGS.md` are current.
+- `fmt`, `clippy`, and tests all pass.
+- The repo is in a clean state for future development.
+Notes:
+- Full iOS `xcodebuild` validation remains limited by the current machine SDK setup, so the project uses the documented fallback validation path.

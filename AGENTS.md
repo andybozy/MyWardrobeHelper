@@ -25,6 +25,9 @@ Build and test:
 - `cargo run -- doctor`
 - `cargo run -- serve`
 - `cargo run -- mcp serve`
+- iOS fallback validation when full Xcode SDKs are unavailable:
+  `plutil -lint ios/.../project.pbxproj`
+  `swiftc -typecheck ios/.../*.swift`
 
 Tracking and commits:
 - Read `TODO.md` and `IMPLEMENTED.md` before starting substantial work.

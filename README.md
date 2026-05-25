@@ -43,7 +43,7 @@ The repository now has its first backend lifecycle and browser UI layers:
 - The native iOS app now has a tag tools screen plus a scanner abstraction for future NFC/QR work
 - Shared item filtering and dashboard summaries now work across the backend, web UI, API, and MCP
 - Backup and structured JSON export now preserve real wardrobe data for recovery workflows
-- iOS companion app still exists as a native placeholder shell
+- The native iOS companion app now covers connection setup, item browsing, media upload, and tag-resolution groundwork
 - The remaining API surface and iOS client work remain planned in `TODO.md`
 
 ## Repository layout

@@ -366,7 +366,6 @@ Current error codes include:
 
 ## Filtering behavior
 
-Filtering is not implemented yet. `GET /api/v1/items` and `GET /api/v1/locations` currently return the full collection. Query-parameter filtering is planned for later sections.
 Filtering is now available on `GET /api/v1/items` with these query parameters:
 
 - `q`

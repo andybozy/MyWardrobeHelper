@@ -1,18 +1,3 @@
-## SEC-003 - Database schema, migrations, and startup initialization
-Objective:
-- Add SQLite database initialization and migrations.
-- Create the first schema for Item, ItemMedia, Location, Movement, Trip, TripItem, and a future-ready PhysicalTag table if practical.
-- Ensure startup can initialize the database safely.
-
-Acceptance criteria:
-- Migrations exist and can create the initial schema.
-- Running init creates a usable SQLite database.
-- Running serve against an empty data directory initializes or guides the user clearly.
-- Basic integration tests exist for schema initialization.
-
-Notes:
-- Keep the schema explicit and well named.
-
 ## SEC-004 - Shared domain, repository, and service layer
 Objective:
 - Establish the shared backend application core that all transports will use.

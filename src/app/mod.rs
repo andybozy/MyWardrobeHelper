@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::AppConfig;
+use crate::db;
 use crate::error::{AppError, AppResult, io_error, io_error_path};
 
 const PLACEHOLDER_EXPORT_NOTE: &str =
@@ -23,6 +24,7 @@ pub struct AppLayout {
 pub struct InitReport {
     pub layout: AppLayout,
     pub created_database_file: bool,
+    pub applied_migration_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,7 +89,7 @@ impl AppLayout {
         }
     }
 
-    pub fn init(&self) -> AppResult<InitReport> {
+    pub async fn init(&self) -> AppResult<InitReport> {
         fs::create_dir_all(&self.root)
             .map_err(io_error_path("create data directory", &self.root))?;
         fs::create_dir_all(&self.item_media_root).map_err(io_error_path(
@@ -104,11 +106,12 @@ impl AppLayout {
         ))?;
 
         let created_database_file = !self.database_file.exists();
-        touch(&self.database_file)?;
+        let migration_report = db::migrate_database(&self.database_file).await?;
 
         Ok(InitReport {
             layout: self.clone(),
             created_database_file,
+            applied_migration_count: migration_report.applied_migration_count,
         })
     }
 
@@ -158,11 +161,13 @@ impl DoctorReport {
     }
 }
 
-pub fn init_app(config: &AppConfig) -> AppResult<InitReport> {
-    AppLayout::from_data_dir(config.data_dir.clone()).init()
+pub async fn init_app(config: &AppConfig) -> AppResult<InitReport> {
+    AppLayout::from_data_dir(config.data_dir.clone())
+        .init()
+        .await
 }
 
-pub fn doctor(config: &AppConfig) -> DoctorReport {
+pub async fn doctor(config: &AppConfig) -> DoctorReport {
     let layout = AppLayout::from_data_dir(config.data_dir.clone());
     let mut checks = Vec::new();
 
@@ -184,7 +189,7 @@ pub fn doctor(config: &AppConfig) -> DoctorReport {
     checks.push(check_file(
         "database_file",
         &layout.database_file,
-        "database file placeholder exists",
+        "database file exists",
         "database file is missing; run `cargo run -- init`",
     ));
 
@@ -246,6 +251,34 @@ pub fn doctor(config: &AppConfig) -> DoctorReport {
         checks.push(check_writable_directory(label, path));
     }
 
+    if layout.database_file.is_file() {
+        match db::schema_status(&layout.database_file).await {
+            Ok(status) if status.missing_tables.is_empty() => checks.push(pass(
+                "schema",
+                format!(
+                    "database schema is ready with {} applied migration(s)",
+                    status.applied_migration_count
+                ),
+            )),
+            Ok(status) => checks.push(fail(
+                "schema",
+                format!(
+                    "database schema is incomplete; missing tables: {}. Re-run `cargo run -- init`",
+                    status.missing_tables.join(", ")
+                ),
+            )),
+            Err(error) => checks.push(fail(
+                "schema",
+                format!("database schema check failed: {error}"),
+            )),
+        }
+    } else {
+        checks.push(fail(
+            "schema",
+            "database schema check skipped because the database file is missing".to_string(),
+        ));
+    }
+
     checks.push(pass(
         "server_config",
         format!(
@@ -264,9 +297,10 @@ pub fn doctor(config: &AppConfig) -> DoctorReport {
     DoctorReport { layout, checks }
 }
 
-pub fn plan_serve(config: &AppConfig) -> AppResult<ServePlan> {
+pub async fn plan_serve(config: &AppConfig) -> AppResult<ServePlan> {
     let layout = AppLayout::from_data_dir(config.data_dir.clone());
     layout.require_initialized()?;
+    ensure_schema_ready(&layout).await?;
 
     Ok(ServePlan {
         bind_url: config.bind_url(),
@@ -276,9 +310,10 @@ pub fn plan_serve(config: &AppConfig) -> AppResult<ServePlan> {
     })
 }
 
-pub fn create_backup(config: &AppConfig) -> AppResult<BackupReport> {
+pub async fn create_backup(config: &AppConfig) -> AppResult<BackupReport> {
     let layout = AppLayout::from_data_dir(config.data_dir.clone());
     layout.require_initialized()?;
+    ensure_schema_ready(&layout).await?;
 
     let backup_file = layout
         .backups_root
@@ -294,9 +329,10 @@ pub fn create_backup(config: &AppConfig) -> AppResult<BackupReport> {
     })
 }
 
-pub fn export_layout(config: &AppConfig) -> AppResult<ExportReport> {
+pub async fn export_layout(config: &AppConfig) -> AppResult<ExportReport> {
     let layout = AppLayout::from_data_dir(config.data_dir.clone());
     layout.require_initialized()?;
+    ensure_schema_ready(&layout).await?;
 
     let export_file = layout
         .exports_root
@@ -310,9 +346,10 @@ pub fn export_layout(config: &AppConfig) -> AppResult<ExportReport> {
     Ok(ExportReport { export_file })
 }
 
-pub fn plan_mcp(config: &AppConfig) -> AppResult<McpPlan> {
+pub async fn plan_mcp(config: &AppConfig) -> AppResult<McpPlan> {
     let layout = AppLayout::from_data_dir(config.data_dir.clone());
     layout.require_initialized()?;
+    ensure_schema_ready(&layout).await?;
 
     Ok(McpPlan { layout })
 }
@@ -432,26 +469,35 @@ fn json_escape_path(path: &Path) -> String {
 }
 
 fn json_escape(input: &str) -> String {
-    input
-        .chars()
-        .flat_map(|character| match character {
-            '\\' => ['\\', '\\'].into_iter().collect::<Vec<_>>(),
-            '"' => ['\\', '"'].into_iter().collect::<Vec<_>>(),
-            '\n' => ['\\', 'n'].into_iter().collect::<Vec<_>>(),
-            '\r' => ['\\', 'r'].into_iter().collect::<Vec<_>>(),
-            '\t' => ['\\', 't'].into_iter().collect::<Vec<_>>(),
-            other => [other].into_iter().collect::<Vec<_>>(),
-        })
-        .collect()
+    let mut escaped = String::with_capacity(input.len());
+
+    for character in input.chars() {
+        match character {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            other => escaped.push(other),
+        }
+    }
+
+    escaped
 }
 
-fn touch(path: &Path) -> AppResult<()> {
-    OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .map(|_| ())
-        .map_err(io_error_path("create database file", path))
+async fn ensure_schema_ready(layout: &AppLayout) -> AppResult<()> {
+    let status = db::schema_status(&layout.database_file).await?;
+    if status.missing_tables.is_empty() {
+        Ok(())
+    } else {
+        Err(AppError::not_initialized(
+            &layout.root,
+            format!(
+                "database schema is incomplete; missing tables: {}. Run `cargo run -- init`",
+                status.missing_tables.join(", ")
+            ),
+        ))
+    }
 }
 
 fn unix_timestamp_secs() -> u64 {
@@ -475,46 +521,57 @@ mod tests {
     use std::env;
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    #[test]
-    fn init_creates_expected_layout() {
+    #[tokio::test]
+    async fn init_creates_expected_layout() {
         let sandbox = TestSandbox::new();
         let config = sandbox.config();
 
-        let report = init_app(&config).expect("init should succeed");
+        let report = init_app(&config).await.expect("init should succeed");
 
         assert_eq!(report.layout.root, sandbox.data_dir);
         assert!(report.layout.database_file.is_file());
         assert!(report.layout.item_media_root.is_dir());
         assert!(report.layout.backups_root.is_dir());
         assert!(report.layout.exports_root.is_dir());
+        assert!(report.applied_migration_count >= 1);
     }
 
-    #[test]
-    fn doctor_reports_missing_initialization() {
+    #[tokio::test]
+    async fn doctor_reports_missing_initialization() {
         let sandbox = TestSandbox::new();
-        let report = doctor(&sandbox.config());
+        let report = doctor(&sandbox.config()).await;
 
         assert!(report.has_failures());
         assert!(report.checks.iter().any(|check| check.label == "data_dir"));
     }
 
-    #[test]
-    fn backup_and_export_require_initialization() {
+    #[tokio::test]
+    async fn backup_and_export_require_initialization() {
         let sandbox = TestSandbox::new();
-        let backup_error = create_backup(&sandbox.config()).expect_err("backup should fail");
-        let export_error = export_layout(&sandbox.config()).expect_err("export should fail");
+        let backup_error = create_backup(&sandbox.config())
+            .await
+            .expect_err("backup should fail");
+        let export_error = export_layout(&sandbox.config())
+            .await
+            .expect_err("export should fail");
 
         assert!(matches!(backup_error, AppError::NotInitialized { .. }));
         assert!(matches!(export_error, AppError::NotInitialized { .. }));
     }
 
-    #[test]
-    fn backup_and_export_succeed_after_initialization() {
+    #[tokio::test]
+    async fn backup_and_export_succeed_after_initialization() {
         let sandbox = TestSandbox::new();
-        init_app(&sandbox.config()).expect("init should succeed");
+        init_app(&sandbox.config())
+            .await
+            .expect("init should succeed");
 
-        let backup = create_backup(&sandbox.config()).expect("backup should succeed");
-        let export = export_layout(&sandbox.config()).expect("export should succeed");
+        let backup = create_backup(&sandbox.config())
+            .await
+            .expect("backup should succeed");
+        let export = export_layout(&sandbox.config())
+            .await
+            .expect("export should succeed");
 
         assert!(backup.backup_file.is_file());
         assert!(export.export_file.is_file());
@@ -531,7 +588,7 @@ mod tests {
 
             let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
             let root = env::temp_dir().join(format!(
-                "mywardrobehelper-sec002-{}-{}",
+                "mywardrobehelper-sec003-{}-{}",
                 std::process::id(),
                 unique
             ));

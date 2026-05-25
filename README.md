@@ -28,8 +28,9 @@ The repository now has its first backend lifecycle layer:
 - Project guidance, backlog tracking, and core docs are initialized
 - CLI commands exist for `init`, `doctor`, `serve`, `backup`, `export`, and `mcp serve`
 - Data directory resolution and layout management are implemented
+- SQLite migrations create the initial schema for items, media, locations, movements, trips, trip items, and physical tags
 - iOS companion app still exists as a native placeholder shell
-- Database schema, HTTP server, JSON API, and MCP transport remain planned in `TODO.md`
+- HTTP server, JSON API, and MCP transport remain planned in `TODO.md`
 
 ## Repository layout
 
@@ -58,8 +59,8 @@ Run the backend binary with:
 
 Current command behavior:
 
-- `init` creates the external data directory layout and a placeholder `wardrobe.sqlite3` file
-- `doctor` checks the resolved config, filesystem layout, and writability
+- `init` creates the external data directory layout, creates `wardrobe.sqlite3`, and runs SQLite migrations
+- `doctor` checks the resolved config, filesystem layout, writability, and database schema health
 - `serve` resolves bind URLs and data paths, but the actual HTTP server arrives in `SEC-005`
 - `backup` copies the current database file into `backups/`
 - `export` writes a placeholder JSON export describing the runtime layout
@@ -96,7 +97,15 @@ The backend keeps mutable state outside the binary:
   exports/
 ```
 
-`SEC-002` creates the layout and placeholder database file. SQLite schema initialization and migrations land in `SEC-003`.
+SQLite migrations live in `migrations/` and are applied during `init`. The current initial schema creates:
+
+- `locations`
+- `items`
+- `item_media`
+- `movements`
+- `trips`
+- `trip_items`
+- `physical_tags`
 
 ## Checks
 

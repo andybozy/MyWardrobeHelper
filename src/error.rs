@@ -2,6 +2,8 @@ use std::fmt::{Display, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
 
+use sqlx::Error as SqlxError;
+
 pub type AppResult<T> = Result<T, AppError>;
 
 #[derive(Debug)]
@@ -9,6 +11,7 @@ pub enum AppError {
     InvalidArgument(String),
     Config(String),
     Io { context: String, source: io::Error },
+    Database { context: String, source: SqlxError },
     NotInitialized { data_dir: PathBuf, reason: String },
 }
 
@@ -23,6 +26,13 @@ impl AppError {
 
     pub fn io(context: impl Into<String>, source: io::Error) -> Self {
         Self::Io {
+            context: context.into(),
+            source,
+        }
+    }
+
+    pub fn database(context: impl Into<String>, source: SqlxError) -> Self {
+        Self::Database {
             context: context.into(),
             source,
         }
@@ -51,6 +61,7 @@ impl Display for AppError {
             Self::InvalidArgument(message) => write!(f, "invalid argument: {message}"),
             Self::Config(message) => write!(f, "configuration error: {message}"),
             Self::Io { context, source } => write!(f, "{context}: {source}"),
+            Self::Database { context, source } => write!(f, "{context}: {source}"),
             Self::NotInitialized { data_dir, reason } => {
                 write!(
                     f,

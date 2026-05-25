@@ -2,7 +2,7 @@
 
 ## Current stage
 
-This repository is in bootstrap state. The durable workflow files are active now:
+This repository has active lifecycle and schema initialization support. The durable workflow files are active now:
 
 - `AGENTS.md` defines repository rules and architecture constraints.
 - `TODO.md` contains unfinished top-level sections only.
@@ -34,7 +34,8 @@ Manual setup remains the current path until then.
 ## Manual development workflow
 
 - Run backend checks with `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test --all-features`.
-- Initialize local runtime state with `cargo run -- init`.
+- Initialize local runtime state and apply SQLite migrations with `cargo run -- init`.
 - Validate the local runtime state with `cargo run -- doctor`.
 - Inspect the current command surface with `cargo run -- help`.
+- Re-run `cargo run -- init` after pulling schema changes that add new migrations.
 - Review the next planned milestones in `TODO.md`.

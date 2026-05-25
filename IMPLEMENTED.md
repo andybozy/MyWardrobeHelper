@@ -33,3 +33,18 @@ Acceptance criteria met:
 - Errors are handled cleanly without panicking for normal user mistakes.
 Notes:
 - The database file created in this section is a placeholder path anchor; SQLite schema creation and migrations are deferred to `SEC-003`.
+
+## SEC-003 - Database schema, migrations, and startup initialization
+Completed: 2026-05-25
+Summary:
+- Added SQLite support with a migration-backed initial schema.
+- Updated `init` to create a real SQLite database and apply migrations.
+- Extended runtime validation so the lifecycle commands verify schema readiness instead of only filesystem layout.
+- Added integration coverage for schema creation and clear `serve` guidance on uninitialized data directories.
+Acceptance criteria met:
+- Migrations exist and can create the initial schema.
+- Running `init` creates a usable SQLite database.
+- Running `serve` against an empty data directory guides the user clearly.
+- Basic integration tests exist for schema initialization.
+Notes:
+- The first schema defines `locations`, `items`, `item_media`, `movements`, `trips`, `trip_items`, and `physical_tags`.

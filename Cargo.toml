@@ -5,3 +5,5 @@ edition = "2024"
 description = "Local-first wardrobe management system with a single Rust backend and native iOS companion app"
 
 [dependencies]
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }

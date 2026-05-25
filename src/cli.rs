@@ -13,8 +13,8 @@ Usage:
   mywardrobehelper [--data-dir PATH] [--host HOST] [--port PORT] [--lan] <command>
 
 Commands:
-  init         Create the external data directory layout.
-  doctor       Check config resolution and data directory readiness.
+  init         Create the external data directory layout and run SQLite migrations.
+  doctor       Check config resolution, filesystem readiness, and database schema health.
   serve        Resolve runtime config and print the planned server bind URLs.
   backup       Copy the current database file into the backups directory.
   export       Write a placeholder JSON export into the exports directory.
@@ -45,9 +45,20 @@ pub struct Cli {
     pub config: AppConfig,
 }
 
-pub fn run() -> ExitCode {
-    match parse_from_process().and_then(dispatch) {
-        Ok(()) => ExitCode::SUCCESS,
+pub async fn run() -> ExitCode {
+    match parse_from_process() {
+        Ok(cli) => match dispatch(cli).await {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(AppError::InvalidArgument(message)) => {
+                eprintln!("error: {message}\n");
+                eprintln!("{HELP_TEXT}");
+                ExitCode::from(2)
+            }
+            Err(error) => {
+                eprintln!("error: {error}");
+                ExitCode::from(1)
+            }
+        },
         Err(AppError::InvalidArgument(message)) => {
             eprintln!("error: {message}\n");
             eprintln!("{HELP_TEXT}");
@@ -155,14 +166,14 @@ fn parse_args(args: &[String], cwd: &Path, env_config: EnvConfig) -> AppResult<C
     Ok(Cli { command, config })
 }
 
-fn dispatch(cli: Cli) -> AppResult<()> {
+async fn dispatch(cli: Cli) -> AppResult<()> {
     match cli.command {
         Command::Help => {
             println!("{HELP_TEXT}");
             Ok(())
         }
         Command::Init => {
-            let report = app::init_app(&cli.config)?;
+            let report = app::init_app(&cli.config).await?;
             println!(
                 "Initialized data directory at {}",
                 report.layout.root.display()
@@ -182,7 +193,7 @@ fn dispatch(cli: Cli) -> AppResult<()> {
             );
             if report.created_database_file {
                 println!(
-                    "Created placeholder database file for SEC-003 at {}",
+                    "Created SQLite database file at {}",
                     report.layout.database_file.display()
                 );
             } else {
@@ -191,10 +202,14 @@ fn dispatch(cli: Cli) -> AppResult<()> {
                     report.layout.database_file.display()
                 );
             }
+            println!(
+                "Applied SQLite migrations: {}",
+                report.applied_migration_count
+            );
             Ok(())
         }
         Command::Doctor => {
-            let report = app::doctor(&cli.config);
+            let report = app::doctor(&cli.config).await;
             let has_failures = report.has_failures();
             println!("Doctor report for {}", report.layout.root.display());
             for check in &report.checks {
@@ -215,7 +230,7 @@ fn dispatch(cli: Cli) -> AppResult<()> {
             Ok(())
         }
         Command::Serve => {
-            let plan = app::plan_serve(&cli.config)?;
+            let plan = app::plan_serve(&cli.config).await?;
             println!("HTTP serve is still a placeholder for SEC-005.");
             println!("Resolved data directory: {}", plan.layout.root.display());
             println!("Planned bind URL: {}", plan.bind_url);
@@ -227,17 +242,17 @@ fn dispatch(cli: Cli) -> AppResult<()> {
             Ok(())
         }
         Command::Backup => {
-            let report = app::create_backup(&cli.config)?;
+            let report = app::create_backup(&cli.config).await?;
             println!(
                 "Created database backup at {}",
                 report.backup_file.display()
             );
             println!("Media backup included: {}", report.media_included);
-            println!("Media files are not included in this SEC-002 backup placeholder.");
+            println!("Media files are not included in this SEC-003 backup placeholder.");
             Ok(())
         }
         Command::Export => {
-            let report = app::export_layout(&cli.config)?;
+            let report = app::export_layout(&cli.config).await?;
             println!(
                 "Wrote placeholder export to {}",
                 report.export_file.display()
@@ -245,7 +260,7 @@ fn dispatch(cli: Cli) -> AppResult<()> {
             Ok(())
         }
         Command::McpServe => {
-            let plan = app::plan_mcp(&cli.config)?;
+            let plan = app::plan_mcp(&cli.config).await?;
             println!("Embedded MCP server is reserved for SEC-007.");
             println!("Resolved data directory: {}", plan.layout.root.display());
             println!("Use `cargo run -- doctor` until the MCP transport is implemented.");

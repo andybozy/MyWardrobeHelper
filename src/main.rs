@@ -11,6 +11,7 @@ mod repositories;
 mod services;
 mod web;
 
-fn main() -> std::process::ExitCode {
-    cli::run()
+#[tokio::main]
+async fn main() -> std::process::ExitCode {
+    cli::run().await
 }

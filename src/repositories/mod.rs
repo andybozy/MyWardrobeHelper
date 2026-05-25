@@ -1,1 +1,3 @@
-// Repository and persistence adapters live here as the backend grows.
+mod sqlite;
+
+pub use sqlite::SqliteWardrobeRepository;

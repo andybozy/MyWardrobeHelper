@@ -48,3 +48,19 @@ Acceptance criteria met:
 - Basic integration tests exist for schema initialization.
 Notes:
 - The first schema defines `locations`, `items`, `item_media`, `movements`, `trips`, `trip_items`, and `physical_tags`.
+
+## SEC-004 - Shared domain, repository, and service layer
+Completed: 2026-05-25
+Summary:
+- Added explicit domain models for items, locations, trips, and service-level health snapshots.
+- Added a concrete SQLite repository layer for create/list/get basics across items, locations, and trips.
+- Added a shared `WardrobeService` and `AppContext` so later transports can reuse the same backend application core.
+- Wired the runtime `doctor` flow through the shared service layer and added tests for the core service operations.
+Acceptance criteria met:
+- Web/UI code does not own business logic.
+- API code does not own business logic.
+- MCP code does not own business logic.
+- A clear backend service layer exists and is positioned for reuse by later transports.
+- Tests exist for core service operations where practical.
+Notes:
+- Current service operations cover health, create/list/get item, create/list/get location, and create/list/get trip.

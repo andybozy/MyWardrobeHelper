@@ -1,0 +1,12 @@
+pub mod api;
+pub mod app;
+pub mod cli;
+pub mod config;
+pub mod db;
+pub mod domain;
+pub mod error;
+pub mod infra;
+pub mod mcp;
+pub mod repositories;
+pub mod services;
+pub mod web;

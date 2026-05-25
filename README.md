@@ -29,6 +29,7 @@ The repository now has its first backend lifecycle layer:
 - CLI commands exist for `init`, `doctor`, `serve`, `backup`, `export`, and `mcp serve`
 - Data directory resolution and layout management are implemented
 - SQLite migrations create the initial schema for items, media, locations, movements, trips, trip items, and physical tags
+- Shared domain, repository, service, and app-context layers exist for health, item, location, and trip basics
 - iOS companion app still exists as a native placeholder shell
 - HTTP server, JSON API, and MCP transport remain planned in `TODO.md`
 

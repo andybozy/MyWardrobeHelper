@@ -47,7 +47,7 @@ pub async fn migrate_database(database_file: &Path) -> AppResult<MigrationReport
 }
 
 pub async fn schema_status(database_file: &Path) -> AppResult<SchemaStatus> {
-    let mut connection = connect(database_file, false).await?;
+    let mut connection = open_connection(database_file).await?;
     schema_status_with_connection(&mut connection).await
 }
 
@@ -102,4 +102,8 @@ async fn connect(database_file: &Path, create_if_missing: bool) -> AppResult<Sql
                 error,
             )
         })
+}
+
+pub async fn open_connection(database_file: &Path) -> AppResult<SqliteConnection> {
+    connect(database_file, false).await
 }

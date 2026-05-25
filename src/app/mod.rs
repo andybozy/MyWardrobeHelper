@@ -6,6 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::config::AppConfig;
 use crate::db;
 use crate::error::{AppError, AppResult, io_error, io_error_path};
+use crate::repositories::SqliteWardrobeRepository;
+use crate::services::WardrobeService;
 
 const PLACEHOLDER_EXPORT_NOTE: &str =
     "Structured wardrobe export will arrive in SEC-017. This file records runtime layout only.";
@@ -49,6 +51,13 @@ pub struct ServePlan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpPlan {
     pub layout: AppLayout,
+}
+
+#[derive(Debug, Clone)]
+pub struct AppContext {
+    pub config: AppConfig,
+    pub layout: AppLayout,
+    pub service: WardrobeService,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,6 +176,21 @@ pub async fn init_app(config: &AppConfig) -> AppResult<InitReport> {
         .await
 }
 
+pub async fn open_context(config: AppConfig) -> AppResult<AppContext> {
+    let layout = AppLayout::from_data_dir(config.data_dir.clone());
+    layout.require_initialized()?;
+    ensure_schema_ready(&layout).await?;
+
+    let repository = SqliteWardrobeRepository::new(layout.database_file.clone());
+    let service = WardrobeService::new(repository);
+
+    Ok(AppContext {
+        config,
+        layout,
+        service,
+    })
+}
+
 pub async fn doctor(config: &AppConfig) -> DoctorReport {
     let layout = AppLayout::from_data_dir(config.data_dir.clone());
     let mut checks = Vec::new();
@@ -277,6 +301,26 @@ pub async fn doctor(config: &AppConfig) -> DoctorReport {
             "schema",
             "database schema check skipped because the database file is missing".to_string(),
         ));
+    }
+
+    match open_context(config.clone()).await {
+        Ok(context) => match context.service.health().await {
+            Ok(health) => checks.push(pass(
+                "service_health",
+                format!(
+                    "service layer can read wardrobe counts (items: {}, locations: {}, trips: {})",
+                    health.item_count, health.location_count, health.trip_count
+                ),
+            )),
+            Err(error) => checks.push(fail(
+                "service_health",
+                format!("service layer health check failed: {error}"),
+            )),
+        },
+        Err(error) => checks.push(fail(
+            "service_health",
+            format!("app context could not open the shared service layer: {error}"),
+        )),
     }
 
     checks.push(pass(

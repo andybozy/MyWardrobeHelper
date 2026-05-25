@@ -1,19 +1,3 @@
-## SEC-004 - Shared domain, repository, and service layer
-Objective:
-- Establish the shared backend application core that all transports will use.
-- Separate domain models, service logic, and persistence concerns cleanly.
-- Implement initial service operations for health, item basics, location basics, and trip basics.
-
-Acceptance criteria:
-- Web/UI code does not own business logic.
-- API code does not own business logic.
-- MCP code does not own business logic.
-- A clear backend service layer exists and is used by all later transports.
-- Tests exist for core service operations where practical.
-
-Notes:
-- This section is foundational. Keep it clean.
-
 ## SEC-005 - HTTP server, base UI, navigation, and health pages
 Objective:
 - Implement the HTTP server and base HTML layout.

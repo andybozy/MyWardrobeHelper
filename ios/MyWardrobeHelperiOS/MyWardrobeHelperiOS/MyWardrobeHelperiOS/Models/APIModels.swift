@@ -90,3 +90,39 @@ struct ServerErrorBody: Decodable, Equatable {
     let code: String
     let message: String
 }
+
+struct ItemMediaRecord: Codable, Equatable, Identifiable {
+    let id: String
+    let itemID: String
+    let mediaKind: String
+    let relativeFilePath: String
+    let originalFilename: String
+    let mimeType: String
+    let fileSizeBytes: Int
+    let durationMS: Int?
+    let width: Int?
+    let height: Int?
+    let caption: String?
+    let sortOrder: Int
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case itemID = "item_id"
+        case mediaKind = "media_kind"
+        case relativeFilePath = "relative_file_path"
+        case originalFilename = "original_filename"
+        case mimeType = "mime_type"
+        case fileSizeBytes = "file_size_bytes"
+        case durationMS = "duration_ms"
+        case width
+        case height
+        case caption
+        case sortOrder = "sort_order"
+        case createdAt = "created_at"
+    }
+}
+
+struct ItemMediaListResponse: Decodable, Equatable {
+    let media: [ItemMediaRecord]
+}

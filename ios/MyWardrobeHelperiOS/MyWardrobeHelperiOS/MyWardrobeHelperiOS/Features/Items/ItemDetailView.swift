@@ -1,10 +1,13 @@
 import SwiftUI
+import PhotosUI
+import Foundation
 
 struct ItemDetailView: View {
     let itemID: String
     let baseURLString: String
 
     @StateObject private var viewModel = ItemDetailViewModel()
+    @State private var selectedMediaItems: [PhotosPickerItem] = []
 
     var body: some View {
         List {
@@ -33,6 +36,43 @@ struct ItemDetailView: View {
                         Text(notes)
                     }
                 }
+
+                Section("Media") {
+                    if viewModel.media.isEmpty {
+                        Text("No media uploaded yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(viewModel.media) { media in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(media.originalFilename)
+                                    .font(.headline)
+                                Text("\(media.mediaKind) · \(media.mimeType)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                if let caption = media.caption, !caption.isEmpty {
+                                    Text(caption)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+
+                    PhotosPicker(
+                        selection: $selectedMediaItems,
+                        maxSelectionCount: 6,
+                        matching: .any(of: [.images, .videos])
+                    ) {
+                        Label("Select Photos or Videos", systemImage: "photo.on.rectangle")
+                    }
+
+                    if viewModel.isUploading {
+                        ProgressView(value: viewModel.uploadProgress)
+                        Text(viewModel.message)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } else {
                 Section("Status") {
                     if viewModel.isLoading {
@@ -48,5 +88,46 @@ struct ItemDetailView: View {
         .task(id: itemID) {
             await viewModel.loadItem(id: itemID, baseURLString: baseURLString)
         }
+        .onChange(of: selectedMediaItems) { _, newItems in
+            guard !newItems.isEmpty else {
+                return
+            }
+
+            Task {
+                let uploads = await buildUploads(from: newItems)
+                selectedMediaItems = []
+                await viewModel.uploadMedia(
+                    itemID: itemID,
+                    baseURLString: baseURLString,
+                    uploads: uploads
+                )
+            }
+        }
+    }
+
+    private func buildUploads(from pickerItems: [PhotosPickerItem]) async -> [PendingMediaUpload] {
+        var uploads: [PendingMediaUpload] = []
+
+        for item in pickerItems {
+            guard let data = try? await item.loadTransferable(type: Data.self) else {
+                continue
+            }
+
+            let type = item.supportedContentTypes.first
+            let mimeType = type?.preferredMIMEType ?? "application/octet-stream"
+            let fileExtension = type?.preferredFilenameExtension ?? "bin"
+            let fileName = "upload-\(UUID().uuidString).\(fileExtension)"
+
+            uploads.append(
+                PendingMediaUpload(
+                    data: data,
+                    fileName: fileName,
+                    mimeType: mimeType,
+                    caption: nil
+                )
+            )
+        }
+
+        return uploads
     }
 }

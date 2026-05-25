@@ -91,6 +91,14 @@ struct APIClient {
         return item
     }
 
+    func fetchItemMedia(itemID: String, baseURL: URL) async throws -> [ItemMediaRecord] {
+        let response: ItemMediaListResponse = try await sendRequest(
+            pathSegments: ["api", "v1", "items", itemID, "media"],
+            baseURL: baseURL
+        )
+        return response.media
+    }
+
     private func sendRequest<Response: Decodable>(
         pathSegments: [String],
         method: String = "GET",

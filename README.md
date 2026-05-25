@@ -38,6 +38,7 @@ The repository now has its first backend lifecycle and browser UI layers:
 - Trip CRUD and packing-list status flows now work through the backend, web UI, API, and MCP
 - The native iOS app now stores a backend profile and can test `/api/v1/health` and `/api/v1/server-info`
 - The native iOS app can now list backend items, open item detail, and create a basic item record
+- The native iOS app can now upload images and videos from the photo library into backend item media
 - iOS companion app still exists as a native placeholder shell
 - The remaining API surface and iOS client work remain planned in `TODO.md`
 

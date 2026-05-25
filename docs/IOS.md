@@ -19,7 +19,14 @@ The repository contains a native SwiftUI companion app at:
 - the app can open an item detail screen backed by `/api/v1/items/:id`
 - the app can create a basic item record through `/api/v1/items`
 
-Media upload and richer editing remain the next sections.
+`SEC-013` is now in place:
+
+- the app can select images and videos from the photo library
+- the app uploads media to `/api/v1/items/:id/media`
+- the item detail screen refreshes backend media metadata after upload
+- visible upload progress is shown while files are sent
+
+Richer item editing remains the next section.
 
 ## What the app does now
 
@@ -33,6 +40,8 @@ The current app focuses on local-network connection setup:
 - browse the backend item list
 - open item detail screens
 - create a basic item record from iOS
+- upload one or more images/videos from the photo library to an item
+- show uploaded media entries after success
 
 The current Swift files are organized under:
 
@@ -95,7 +104,6 @@ Displayed information:
 ## Current limitations
 
 - no edit-item flow on iOS yet
-- no media upload yet
 - no tag-scanning integration yet
 - no Bonjour discovery yet
 
@@ -111,6 +119,5 @@ Cheap validation used here:
 
 ## Next steps
 
-- `SEC-013`: image/video upload from iPhone/iPad into MyWardrobeHelper
 - richer item editing on iOS beyond the current basic create flow
 - `SEC-015`: future tag-scanning groundwork

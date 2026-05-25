@@ -196,3 +196,20 @@ Acceptance criteria met:
 - Additional iOS unit-test targets are still not practical in this environment, but the Swift source is typechecked directly.
 Notes:
 - The current iOS item flow supports browsing and basic creation; richer item editing remains future work.
+
+## SEC-013 - iOS image/video upload to MyWardrobeHelper
+Completed: 2026-05-25
+Summary:
+- Added a centralized iOS media upload client for `/api/v1/items/:id/media`.
+- Added `PhotosPicker`-based image and video selection in the item detail screen.
+- Added visible per-upload progress plus backend media refresh after upload completion.
+- Updated iOS documentation and validated the expanded Swift source with direct type-checking in this environment.
+Acceptance criteria met:
+- The app can pick one or more images from the device and upload them to an item.
+- The app can pick one or more videos from the device and upload them to an item.
+- Upload progress and success/failure are visible.
+- The backend stores uploaded files and metadata correctly.
+- The item detail flow can show the uploaded media after success.
+- `docs/IOS.md` and `docs/API.md` describe the upload behavior.
+Notes:
+- The current iOS detail screen shows uploaded media metadata rather than full inline image/video previews.

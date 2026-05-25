@@ -1,20 +1,3 @@
-## SEC-013 - iOS image/video upload to MyWardrobeHelper
-Objective:
-- Let the iOS app upload images and videos directly to an item in the backend.
-- Implement reusable upload logic and progress handling.
-- Ensure uploaded media appears back in backend-backed item views.
-
-Acceptance criteria:
-- The app can pick one or more images from the device and upload them to an item.
-- The app can pick one or more videos from the device and upload them to an item.
-- Upload progress and success/failure are visible.
-- The backend stores uploaded files and metadata correctly.
-- The item detail flow can show the uploaded media after success.
-- docs/IOS.md and docs/API.md describe the upload behavior.
-
-Notes:
-- Camera capture may be added if it fits cleanly, but direct library-based upload is mandatory.
-
 ## SEC-014 - Physical tag domain and backend future-ready contracts
 Objective:
 - Introduce the PhysicalTag domain cleanly if not already done.

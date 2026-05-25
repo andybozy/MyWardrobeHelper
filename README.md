@@ -22,7 +22,7 @@ Constraints for this repository:
 
 ## Current status
 
-The repository now has its first backend lifecycle layer:
+The repository now has its first backend lifecycle and browser UI layers:
 
 - Rust backend binary project exists and builds
 - Project guidance, backlog tracking, and core docs are initialized
@@ -30,8 +30,9 @@ The repository now has its first backend lifecycle layer:
 - Data directory resolution and layout management are implemented
 - SQLite migrations create the initial schema for items, media, locations, movements, trips, trip items, and physical tags
 - Shared domain, repository, service, and app-context layers exist for health, item, location, and trip basics
+- A server-rendered browser UI now ships with a dashboard and status page
 - iOS companion app still exists as a native placeholder shell
-- HTTP server, JSON API, and MCP transport remain planned in `TODO.md`
+- JSON API and MCP transport remain planned in `TODO.md`
 
 ## Repository layout
 
@@ -62,7 +63,7 @@ Current command behavior:
 
 - `init` creates the external data directory layout, creates `wardrobe.sqlite3`, and runs SQLite migrations
 - `doctor` checks the resolved config, filesystem layout, writability, and database schema health
-- `serve` resolves bind URLs and data paths, but the actual HTTP server arrives in `SEC-005`
+- `serve` starts the local HTTP server, serves the browser UI, and prints the local and LAN URLs when relevant
 - `backup` copies the current database file into `backups/`
 - `export` writes a placeholder JSON export describing the runtime layout
 - `mcp serve` reserves the embedded MCP command surface for `SEC-007`

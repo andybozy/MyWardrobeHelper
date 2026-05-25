@@ -23,6 +23,7 @@ Build and test:
 - `cargo run -- help`
 - `cargo run -- init`
 - `cargo run -- doctor`
+- `cargo run -- serve`
 
 Tracking and commits:
 - Read `TODO.md` and `IMPLEMENTED.md` before starting substantial work.

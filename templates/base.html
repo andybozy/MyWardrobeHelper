@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title }} | MyWardrobeHelper</title>
+    <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<div class="page-shell">
+    <header class="site-header">
+        <p class="eyebrow">Local-first wardrobe system</p>
+        <div class="title-row">
+            <div>
+                <h1 class="site-title">MyWardrobeHelper</h1>
+                <p class="site-subtitle">One Rust binary, one SQLite database, one local browser UI.</p>
+            </div>
+        </div>
+        <nav class="site-nav" aria-label="Primary">
+            <a href="/" class="{% if nav_home_active %}is-active{% endif %}">Dashboard</a>
+            <a href="/status" class="{% if nav_status_active %}is-active{% endif %}">System Status</a>
+        </nav>
+    </header>
+
+    <main class="site-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <span>Data directory: <code>{{ data_dir }}</code></span>
+    </footer>
+</div>
+</body>
+</html>

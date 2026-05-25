@@ -334,7 +334,7 @@ pub async fn doctor(config: &AppConfig) -> DoctorReport {
 
     checks.push(warn(
         "transport_status",
-        "HTTP serve, JSON API, and MCP server are still placeholders until SEC-005 through SEC-007"
+        "HTTP UI is available; JSON API and MCP server remain placeholders until SEC-006 and SEC-007"
             .to_string(),
     ));
 

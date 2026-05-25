@@ -5,6 +5,7 @@ use std::process::ExitCode;
 use crate::app;
 use crate::config::{AppConfig, ConfigOverrides, EnvConfig};
 use crate::error::{AppError, AppResult};
+use crate::web;
 
 const HELP_TEXT: &str = "\
 MyWardrobeHelper
@@ -15,7 +16,7 @@ Usage:
 Commands:
   init         Create the external data directory layout and run SQLite migrations.
   doctor       Check config resolution, filesystem readiness, and database schema health.
-  serve        Resolve runtime config and print the planned server bind URLs.
+  serve        Start the local HTTP server for the browser UI.
   backup       Copy the current database file into the backups directory.
   export       Write a placeholder JSON export into the exports directory.
   mcp serve    Reserve the embedded MCP command surface for SEC-007.
@@ -230,16 +231,8 @@ async fn dispatch(cli: Cli) -> AppResult<()> {
             Ok(())
         }
         Command::Serve => {
-            let plan = app::plan_serve(&cli.config).await?;
-            println!("HTTP serve is still a placeholder for SEC-005.");
-            println!("Resolved data directory: {}", plan.layout.root.display());
-            println!("Planned bind URL: {}", plan.bind_url);
-            println!("Local URL: {}", plan.local_url);
-            match plan.lan_url {
-                Some(url) => println!("LAN URL: {url}"),
-                None => println!("LAN URL: disabled (bind host is loopback only)"),
-            }
-            Ok(())
+            let context = app::open_context(cli.config.clone()).await?;
+            web::serve(context).await
         }
         Command::Backup => {
             let report = app::create_backup(&cli.config).await?;

@@ -36,6 +36,7 @@ Manual setup remains the current path until then.
 - Run backend checks with `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test --all-features`.
 - Initialize local runtime state and apply SQLite migrations with `cargo run -- init`.
 - Validate the local runtime state with `cargo run -- doctor`.
+- Inspect the local browser UI with `cargo run -- serve`.
 - Inspect the current command surface with `cargo run -- help`.
 - Re-run `cargo run -- init` after pulling schema changes that add new migrations.
 - Review the next planned milestones in `TODO.md`.

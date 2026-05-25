@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Health</p>
+        <h2>System Status</h2>
+        <p class="lede">Filesystem, schema, and service-layer checks for the local wardrobe backend.</p>
+    </div>
+    <aside class="endpoint-card">
+        <p class="panel-label">Runtime</p>
+        <p class="endpoint">{{ bind_url }}</p>
+        <p class="endpoint-note">Local browser URL: <code>{{ local_url }}</code></p>
+        {% match lan_url %}
+        {% when Some with (url) %}
+        <p class="endpoint-note">LAN URL: <code>{{ url }}</code></p>
+        {% when None %}
+        <p class="endpoint-note">LAN access is disabled on the current bind host.</p>
+        {% endmatch %}
+    </aside>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <p class="panel-label">Items</p>
+        <p class="stat-value">{{ health.item_count }}</p>
+        <p class="stat-detail">Records available through the shared service layer.</p>
+    </article>
+    <article class="stat-card">
+        <p class="panel-label">Locations</p>
+        <p class="stat-value">{{ health.location_count }}</p>
+        <p class="stat-detail">Storage nodes currently tracked in SQLite.</p>
+    </article>
+    <article class="stat-card">
+        <p class="panel-label">Trips</p>
+        <p class="stat-value">{{ health.trip_count }}</p>
+        <p class="stat-detail">Trip planning records stored in the local database.</p>
+    </article>
+</section>
+
+<section class="panel-grid is-status">
+    <article class="panel">
+        <h3>Runtime Details</h3>
+        <dl class="key-value-list">
+            <div>
+                <dt>Data directory</dt>
+                <dd><code>{{ data_dir }}</code></dd>
+            </div>
+            <div>
+                <dt>Database file</dt>
+                <dd><code>{{ database_file }}</code></dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="panel wide-panel">
+        <h3>Doctor Checks</h3>
+        <table class="checks-table">
+            <thead>
+            <tr>
+                <th>Check</th>
+                <th>Status</th>
+                <th>Message</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for check in checks %}
+            <tr>
+                <td><code>{{ check.label }}</code></td>
+                <td><span class="status-badge {{ check.badge_class }}">{{ check.badge }}</span></td>
+                <td>{{ check.message }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </article>
+</section>
+{% endblock %}

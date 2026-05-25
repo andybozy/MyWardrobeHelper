@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Dashboard</p>
+        <h2>Wardrobe Dashboard</h2>
+        <p class="lede">Track what exists, where it lives, and what is already being planned for travel.</p>
+    </div>
+    <aside class="endpoint-card">
+        <p class="panel-label">Browser UI</p>
+        <p class="endpoint">{{ local_url }}</p>
+        {% match lan_url %}
+        {% when Some with (url) %}
+        <p class="endpoint-note">LAN access available at <code>{{ url }}</code></p>
+        {% when None %}
+        <p class="endpoint-note">LAN access is disabled while the backend binds to loopback only.</p>
+        {% endmatch %}
+    </aside>
+</section>
+
+<section class="stats-grid">
+    {% for stat in stats %}
+    <article class="stat-card">
+        <p class="panel-label">{{ stat.label }}</p>
+        <p class="stat-value">{{ stat.value }}</p>
+        <p class="stat-detail">{{ stat.detail }}</p>
+    </article>
+    {% endfor %}
+</section>
+
+<section class="panel-grid">
+    <article class="panel">
+        <h3>Recent Items</h3>
+        {% if has_recent_items %}
+        <ul class="record-list">
+            {% for entry in recent_items %}
+            <li>
+                <strong>{{ entry.title }}</strong>
+                <span>{{ entry.subtitle }}</span>
+                <em>{{ entry.meta }}</em>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-state">No items have been added yet.</p>
+        {% endif %}
+    </article>
+
+    <article class="panel">
+        <h3>Recent Locations</h3>
+        {% if has_recent_locations %}
+        <ul class="record-list">
+            {% for entry in recent_locations %}
+            <li>
+                <strong>{{ entry.title }}</strong>
+                <span>{{ entry.subtitle }}</span>
+                <em>{{ entry.meta }}</em>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-state">No storage locations have been created yet.</p>
+        {% endif %}
+    </article>
+
+    <article class="panel">
+        <h3>Recent Trips</h3>
+        {% if has_recent_trips %}
+        <ul class="record-list">
+            {% for entry in recent_trips %}
+            <li>
+                <strong>{{ entry.title }}</strong>
+                <span>{{ entry.subtitle }}</span>
+                <em>{{ entry.meta }}</em>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-state">No trips have been planned yet.</p>
+        {% endif %}
+    </article>
+ </section>
+{% endblock %}

@@ -64,3 +64,19 @@ Acceptance criteria met:
 - Tests exist for core service operations where practical.
 Notes:
 - Current service operations cover health, create/list/get item, create/list/get location, and create/list/get trip.
+
+## SEC-005 - HTTP server, base UI, navigation, and health pages
+Completed: 2026-05-25
+Summary:
+- Added an `axum`-based local HTTP server and server-rendered UI using `askama` templates.
+- Added a dashboard page backed by the shared service layer plus a runtime status page backed by doctor checks.
+- Added a local stylesheet asset and kept the browser UI free of frontend build tooling.
+- Added router-level tests and live `serve` smoke verification for the dashboard and status pages.
+Acceptance criteria met:
+- Running `serve` starts a local web server.
+- The browser UI renders with a base layout and navigation.
+- There is a home/dashboard page.
+- There is a status/health page.
+- CSS/JS remains minimal and local.
+Notes:
+- The web transport now exists; the JSON API and embedded MCP transports remain the next planned backend surfaces.

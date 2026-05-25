@@ -1,19 +1,3 @@
-## SEC-005 - HTTP server, base UI, navigation, and health pages
-Objective:
-- Implement the HTTP server and base HTML layout.
-- Add simple navigation and foundational pages.
-- Add a dashboard/home page and a health/status page.
-
-Acceptance criteria:
-- Running serve starts a local web server.
-- The browser UI renders with a base layout and navigation.
-- There is a home/dashboard page.
-- There is at least one status/health page.
-- CSS/JS remains minimal and local.
-
-Notes:
-- Prefer clean server-rendered templates and simple styling.
-
 ## SEC-006 - JSON API foundation and OpenAPI contract
 Objective:
 - Implement the versioned JSON API foundation.

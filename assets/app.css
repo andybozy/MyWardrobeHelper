@@ -32,6 +32,10 @@ code {
     font-size: 0.92em;
 }
 
+a {
+    color: var(--accent-deep);
+}
+
 .page-shell {
     width: min(1120px, calc(100% - 2rem));
     margin: 0 auto;
@@ -223,6 +227,10 @@ code {
     font-size: 1.05rem;
 }
 
+.record-list strong a {
+    text-decoration: none;
+}
+
 .record-list em {
     font-style: normal;
 }
@@ -299,6 +307,104 @@ code {
     background: rgba(159, 47, 47, 0.12);
 }
 
+.item-form,
+.upload-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.item-form label,
+.upload-form label {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--muted);
+}
+
+.item-form label span,
+.upload-form label span {
+    font-family: "Avenir Next Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.82rem;
+    color: var(--accent);
+}
+
+.item-form input,
+.item-form textarea,
+.upload-form input {
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border-radius: 14px;
+    border: 1px solid rgba(83, 61, 38, 0.16);
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--text);
+    font: inherit;
+}
+
+.wide-field {
+    grid-column: 1 / -1;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+button {
+    border: 0;
+    border-radius: 999px;
+    padding: 0.8rem 1.2rem;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+    color: #fff6ef;
+    font-family: "Avenir Next Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.media-card {
+    margin: 0;
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.9rem;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(83, 61, 38, 0.12);
+}
+
+.media-card img,
+.media-card video {
+    width: 100%;
+    border-radius: 14px;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: rgba(83, 61, 38, 0.08);
+}
+
+.media-card figcaption {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.media-card figcaption span,
+.media-card figcaption em {
+    color: var(--muted);
+}
+
 .wide-panel {
     min-width: 0;
 }
@@ -312,7 +418,8 @@ code {
     .hero,
     .stats-grid,
     .panel-grid,
-    .panel-grid.is-status {
+    .panel-grid.is-status,
+    .form-grid {
         grid-template-columns: 1fr;
     }
 }

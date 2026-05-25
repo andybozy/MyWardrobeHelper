@@ -2,19 +2,21 @@
 
 ## Current stage
 
-The JSON API foundation is now available under `/api/v1`. It currently covers:
+The JSON API foundation is available under `/api/v1`. It currently covers:
 
 - health and runtime info
-- item list/create/get
+- item list/create/get/update
+- item media list/upload
 - location list/create/get
 - a stable JSON error envelope
 
-Trip routes, item updates, location updates, movements, and media upload remain future sections.
+Trip routes, movement routes, item deletion, and media deletion remain future sections.
 
 ## Versioning
 
 - Base path: `/api/v1`
 - Content type: `application/json`
+- Multipart uploads: `multipart/form-data`
 - Versioning strategy: additive changes within `v1`, new base path for breaking changes later
 
 ## Implemented endpoints
@@ -29,6 +31,12 @@ Items:
 - `GET /api/v1/items`
 - `POST /api/v1/items`
 - `GET /api/v1/items/:id`
+- `PATCH /api/v1/items/:id`
+
+Item media:
+
+- `GET /api/v1/items/:id/media`
+- `POST /api/v1/items/:id/media`
 
 Locations:
 
@@ -90,19 +98,18 @@ Locations:
 }
 ```
 
-`POST /api/v1/items`
+`PATCH /api/v1/items/:id`
 
 Request:
 
 ```json
 {
-  "name": "Weekend Coat",
-  "category": "Outerwear",
-  "brand": "Example"
+  "brand": "Example",
+  "status": "ready"
 }
 ```
 
-Response: `201 Created`
+Response: `200 OK`
 
 ```json
 {
@@ -117,36 +124,35 @@ Response: `201 Created`
   "material": null,
   "season": null,
   "formality": null,
-  "status": null,
+  "status": "ready",
   "current_location_id": null,
   "notes": null,
   "created_at": "2026-05-25 18:41:13",
-  "updated_at": "2026-05-25 18:41:13"
+  "updated_at": "2026-05-25 18:59:01"
 }
 ```
 
-`POST /api/v1/locations`
-
-Request:
+`GET /api/v1/items/:id/media`
 
 ```json
 {
-  "name": "Front Closet",
-  "location_type": "Closet"
-}
-```
-
-Response: `201 Created`
-
-```json
-{
-  "id": "location-1779734473732-1",
-  "name": "Front Closet",
-  "location_type": "Closet",
-  "parent_id": null,
-  "notes": null,
-  "created_at": "2026-05-25 18:41:13",
-  "updated_at": "2026-05-25 18:41:13"
+  "media": [
+    {
+      "id": "media-1779736001000-0",
+      "item_id": "item-1779734473705-0",
+      "media_kind": "image",
+      "relative_file_path": "media/items/item-1779734473705-0/media-1779736001000-0.jpg",
+      "original_filename": "coat.jpg",
+      "mime_type": "image/jpeg",
+      "file_size_bytes": 16,
+      "duration_ms": null,
+      "width": null,
+      "height": null,
+      "caption": "Front view",
+      "sort_order": 0,
+      "created_at": "2026-05-25 18:59:01"
+    }
+  ]
 }
 ```
 
@@ -169,6 +175,8 @@ Every API error uses the same top-level envelope:
 Current error codes include:
 
 - `INVALID_REQUEST`
+- `INVALID_MULTIPART`
+- `NO_MEDIA_FILES`
 - `ITEM_NOT_FOUND`
 - `LOCATION_NOT_FOUND`
 - `SERVICE_NOT_READY`
@@ -180,12 +188,24 @@ Filtering is not implemented yet. `GET /api/v1/items` and `GET /api/v1/locations
 
 ## Media upload behavior
 
-Media upload is not implemented yet. Planned direction:
+`POST /api/v1/items/:id/media` accepts `multipart/form-data` with:
 
-- endpoint under `/api/v1/items/:id/media`
-- `multipart/form-data`
-- file storage on disk
-- metadata in SQLite
+- one or more `file` parts
+- optional `caption` text part
+
+Backend behavior:
+
+- validates that the item exists
+- accepts `image/*` and `video/*`
+- stores files under `media/items/<item-id>/`
+- persists metadata in SQLite
+- returns the created media records
+
+Current limitations:
+
+- width, height, and duration metadata are not extracted yet
+- no delete endpoint yet
+- no thumbnail generation yet
 
 ## OpenAPI
 

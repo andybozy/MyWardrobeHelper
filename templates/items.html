@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Inventory</p>
+        <h2>Items</h2>
+        <p class="lede">Browse the current wardrobe inventory and jump into item detail or editing flows.</p>
+    </div>
+    <aside class="endpoint-card">
+        <p class="panel-label">Next step</p>
+        <p class="endpoint"><a href="/items/new">Create a new item</a></p>
+        <p class="endpoint-note">Use the item detail page to upload photos or videos after creation.</p>
+    </aside>
+</section>
+
+<section class="panel-grid is-status">
+    <article class="panel wide-panel">
+        <h3>Inventory List</h3>
+        {% if has_items %}
+        <ul class="record-list">
+            {% for entry in items %}
+            <li>
+                <strong><a href="{{ entry.meta }}">{{ entry.title }}</a></strong>
+                <span>{{ entry.subtitle }}</span>
+                <em>{{ entry.meta }}</em>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-state">No items exist yet. Create the first one to start uploading media and tracking metadata.</p>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

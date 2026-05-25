@@ -127,6 +127,178 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update an item",
+        "operationId": "updateItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{id}/media": {
+      "get": {
+        "summary": "List media for one item",
+        "operationId": "listItemMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Media metadata for the requested item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemMediaListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Upload media for one item",
+        "operationId": "uploadItemMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "caption": {
+                    "type": "string"
+                  },
+                  "file": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created media records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemMediaListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid multipart request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Item not found",
             "content": {
@@ -268,6 +440,18 @@
           }
         }
       },
+      "ItemMediaListResponse": {
+        "type": "object",
+        "required": ["media"],
+        "properties": {
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemMedia"
+            }
+          }
+        }
+      },
       "LocationsListResponse": {
         "type": "object",
         "required": ["locations"],
@@ -283,6 +467,24 @@
         "required": ["name"],
         "properties": {
           "name": { "type": "string" },
+          "category": { "type": ["string", "null"] },
+          "subcategory": { "type": ["string", "null"] },
+          "brand": { "type": ["string", "null"] },
+          "size": { "type": ["string", "null"] },
+          "color_primary": { "type": ["string", "null"] },
+          "color_secondary": { "type": ["string", "null"] },
+          "material": { "type": ["string", "null"] },
+          "season": { "type": ["string", "null"] },
+          "formality": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "current_location_id": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "PatchItemRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": ["string", "null"] },
           "category": { "type": ["string", "null"] },
           "subcategory": { "type": ["string", "null"] },
           "brand": { "type": ["string", "null"] },
@@ -340,6 +542,35 @@
           "notes": { "type": ["string", "null"] },
           "created_at": { "type": "string" },
           "updated_at": { "type": "string" }
+        }
+      },
+      "ItemMedia": {
+        "type": "object",
+        "required": [
+          "id",
+          "item_id",
+          "media_kind",
+          "relative_file_path",
+          "original_filename",
+          "mime_type",
+          "file_size_bytes",
+          "sort_order",
+          "created_at"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "item_id": { "type": "string" },
+          "media_kind": { "type": "string" },
+          "relative_file_path": { "type": "string" },
+          "original_filename": { "type": "string" },
+          "mime_type": { "type": "string" },
+          "file_size_bytes": { "type": "integer" },
+          "duration_ms": { "type": ["integer", "null"] },
+          "width": { "type": ["integer", "null"] },
+          "height": { "type": ["integer", "null"] },
+          "caption": { "type": ["string", "null"] },
+          "sort_order": { "type": "integer" },
+          "created_at": { "type": "string" }
         }
       },
       "ErrorEnvelope": {

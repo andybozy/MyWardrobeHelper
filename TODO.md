@@ -1,20 +1,3 @@
-## SEC-008 - Item CRUD and backend media storage
-Objective:
-- Implement create, list, view, and edit flows for items.
-- Implement image/video upload and storage on disk.
-- Persist media metadata in SQLite.
-- Show item media in the web UI and through the API where appropriate.
-
-Acceptance criteria:
-- A user can create an item with structured fields.
-- A user can view and edit an item.
-- A user can upload one or more images/videos for an item.
-- Media files are stored on disk and metadata in SQLite.
-- Tests exist for core item persistence and media metadata logic.
-
-Notes:
-- Keep media paths relative to the configured data directory.
-
 ## SEC-009 - Hierarchical locations and movement history
 Objective:
 - Implement nested locations.

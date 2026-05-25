@@ -38,6 +38,49 @@ pub struct NewItem {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdateItemInput {
+    pub name: String,
+    pub category: Option<String>,
+    pub subcategory: Option<String>,
+    pub brand: Option<String>,
+    pub size: Option<String>,
+    pub color_primary: Option<String>,
+    pub color_secondary: Option<String>,
+    pub material: Option<String>,
+    pub season: Option<String>,
+    pub formality: Option<String>,
+    pub status: Option<String>,
+    pub current_location_id: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ItemMedia {
+    pub id: String,
+    pub item_id: String,
+    pub media_kind: String,
+    pub relative_file_path: String,
+    pub original_filename: String,
+    pub mime_type: String,
+    pub file_size_bytes: i64,
+    pub duration_ms: Option<i64>,
+    pub width: Option<i64>,
+    pub height: Option<i64>,
+    pub caption: Option<String>,
+    pub sort_order: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NewItemMediaInput {
+    pub media_kind: String,
+    pub original_filename: Option<String>,
+    pub mime_type: String,
+    pub caption: Option<String>,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Location {
     pub id: String,
     pub name: String,

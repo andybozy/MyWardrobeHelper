@@ -114,3 +114,19 @@ Acceptance criteria met:
 - The tool surface includes health, list items, get item, list locations, move item, list trips, and list trip items.
 Notes:
 - The initial MCP server is STDIO-only and focuses on tools; prompts and resources remain out of scope for now.
+
+## SEC-008 - Item CRUD and backend media storage
+Completed: 2026-05-25
+Summary:
+- Added item list/detail/create/edit flows to the server-rendered UI and item update/media routes to the JSON API.
+- Added filesystem-backed media storage plus SQLite metadata persistence for item images and videos.
+- Added static media serving for the local browser UI and multipart upload handling for both the UI and API.
+- Added service, API, and web tests covering item update, media persistence, upload, and retrieval behavior.
+Acceptance criteria met:
+- A user can create an item with structured fields.
+- A user can view and edit an item.
+- A user can upload one or more images/videos for an item.
+- Media files are stored on disk and metadata in SQLite.
+- Tests exist for core item persistence and media metadata logic.
+Notes:
+- Media paths remain relative to the configured data directory under `media/items/<item-id>/`.

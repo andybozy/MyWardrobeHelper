@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Item Editor</p>
+        <h2>{{ heading }}</h2>
+        <p class="lede">Structured fields stay intentionally simple so the backend remains the single place that owns item state.</p>
+    </div>
+</section>
+
+<section class="panel-grid is-status">
+    <article class="panel wide-panel">
+        <form method="post" action="{{ action_url }}" class="item-form">
+            <div class="form-grid">
+                <label>
+                    <span>Name</span>
+                    <input type="text" name="name" value="{{ item.name }}" required>
+                </label>
+                <label>
+                    <span>Category</span>
+                    <input type="text" name="category" value="{{ item.category }}">
+                </label>
+                <label>
+                    <span>Subcategory</span>
+                    <input type="text" name="subcategory" value="{{ item.subcategory }}">
+                </label>
+                <label>
+                    <span>Brand</span>
+                    <input type="text" name="brand" value="{{ item.brand }}">
+                </label>
+                <label>
+                    <span>Size</span>
+                    <input type="text" name="size" value="{{ item.size }}">
+                </label>
+                <label>
+                    <span>Primary color</span>
+                    <input type="text" name="color_primary" value="{{ item.color_primary }}">
+                </label>
+                <label>
+                    <span>Secondary color</span>
+                    <input type="text" name="color_secondary" value="{{ item.color_secondary }}">
+                </label>
+                <label>
+                    <span>Material</span>
+                    <input type="text" name="material" value="{{ item.material }}">
+                </label>
+                <label>
+                    <span>Season</span>
+                    <input type="text" name="season" value="{{ item.season }}">
+                </label>
+                <label>
+                    <span>Formality</span>
+                    <input type="text" name="formality" value="{{ item.formality }}">
+                </label>
+                <label>
+                    <span>Status</span>
+                    <input type="text" name="status" value="{{ item.status }}">
+                </label>
+                <label>
+                    <span>Current location id</span>
+                    <input type="text" name="current_location_id" value="{{ item.current_location_id }}">
+                </label>
+                <label class="wide-field">
+                    <span>Notes</span>
+                    <textarea name="notes" rows="5">{{ item.notes }}</textarea>
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="submit">{{ submit_label }}</button>
+                <a href="/items">Back to items</a>
+            </div>
+        </form>
+    </article>
+</section>
+{% endblock %}

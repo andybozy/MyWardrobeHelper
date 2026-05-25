@@ -1,1 +1,3 @@
-// Filesystem, time, and other infrastructure helpers live here as the backend grows.
+mod media_storage;
+
+pub use media_storage::{MediaStorage, StoredMediaFile};

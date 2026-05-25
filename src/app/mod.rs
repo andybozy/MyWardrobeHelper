@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::config::AppConfig;
 use crate::db;
 use crate::error::{AppError, AppResult, io_error, io_error_path};
+use crate::infra::MediaStorage;
 use crate::repositories::SqliteWardrobeRepository;
 use crate::services::WardrobeService;
 
@@ -177,7 +178,7 @@ pub async fn open_context(config: AppConfig) -> AppResult<AppContext> {
     ensure_schema_ready(&layout).await?;
 
     let repository = SqliteWardrobeRepository::new(layout.database_file.clone());
-    let service = WardrobeService::new(repository);
+    let service = WardrobeService::new(repository, MediaStorage::new(layout.root.clone()));
 
     Ok(AppContext {
         config,

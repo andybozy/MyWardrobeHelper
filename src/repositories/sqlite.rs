@@ -4,8 +4,8 @@ use sqlx::{Connection, Row, SqliteConnection};
 
 use crate::db;
 use crate::domain::{
-    HealthSnapshot, Item, Location, MoveItemInput, MoveItemResult, Movement, NewItem, NewLocation,
-    NewTrip, NewTripItem, Trip, TripItem,
+    HealthSnapshot, Item, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement, NewItem,
+    NewItemMediaInput, NewLocation, NewTrip, NewTripItem, Trip, TripItem, UpdateItemInput,
 };
 use crate::error::{AppError, AppResult};
 
@@ -83,6 +83,101 @@ impl SqliteWardrobeRepository {
         .map_err(|error| AppError::database("get item", error))?;
 
         row.map(map_item_row).transpose()
+    }
+
+    pub async fn update_item(&self, item_id: &str, input: &UpdateItemInput) -> AppResult<Item> {
+        let mut connection = self.connect().await?;
+        sqlx::query(
+            "UPDATE items
+             SET name = ?, category = ?, subcategory = ?, brand = ?, size = ?, color_primary = ?,
+                 color_secondary = ?, material = ?, season = ?, formality = ?, status = ?,
+                 current_location_id = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?",
+        )
+        .bind(&input.name)
+        .bind(&input.category)
+        .bind(&input.subcategory)
+        .bind(&input.brand)
+        .bind(&input.size)
+        .bind(&input.color_primary)
+        .bind(&input.color_secondary)
+        .bind(&input.material)
+        .bind(&input.season)
+        .bind(&input.formality)
+        .bind(&input.status)
+        .bind(&input.current_location_id)
+        .bind(&input.notes)
+        .bind(item_id)
+        .execute(&mut connection)
+        .await
+        .map_err(|error| AppError::database("update item", error))?;
+
+        self.get_item(item_id)
+            .await?
+            .ok_or_else(|| AppError::database("load item after update", sqlx::Error::RowNotFound))
+    }
+
+    pub async fn add_item_media(
+        &self,
+        media_id: &str,
+        item_id: &str,
+        input: &NewItemMediaInput,
+        relative_file_path: &str,
+    ) -> AppResult<ItemMedia> {
+        let mut connection = self.connect().await?;
+        let next_sort_order = sqlx::query_scalar::<_, i64>(
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM item_media WHERE item_id = ?",
+        )
+        .bind(item_id)
+        .fetch_one(&mut connection)
+        .await
+        .map_err(|error| AppError::database("read next item media sort order", error))?;
+
+        sqlx::query(
+            "INSERT INTO item_media (
+                id, item_id, media_kind, relative_file_path, original_filename, mime_type,
+                file_size_bytes, duration_ms, width, height, caption, sort_order
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(media_id)
+        .bind(item_id)
+        .bind(&input.media_kind)
+        .bind(relative_file_path)
+        .bind(input.original_filename.as_deref().unwrap_or("upload.bin"))
+        .bind(&input.mime_type)
+        .bind(input.bytes.len() as i64)
+        .bind(Option::<i64>::None)
+        .bind(Option::<i64>::None)
+        .bind(Option::<i64>::None)
+        .bind(&input.caption)
+        .bind(next_sort_order)
+        .execute(&mut connection)
+        .await
+        .map_err(|error| AppError::database("insert item media", error))?;
+
+        self.get_item_media(media_id).await?.ok_or_else(|| {
+            AppError::database("load item media after insert", sqlx::Error::RowNotFound)
+        })
+    }
+
+    pub async fn list_item_media(&self, item_id: &str) -> AppResult<Vec<ItemMedia>> {
+        let mut connection = self.connect().await?;
+        let rows = sqlx::query(
+            "SELECT
+                id, item_id, media_kind, relative_file_path, original_filename, mime_type,
+                file_size_bytes, duration_ms, width, height, caption, sort_order, created_at
+             FROM item_media
+             WHERE item_id = ?
+             ORDER BY sort_order, created_at, id",
+        )
+        .bind(item_id)
+        .fetch_all(&mut connection)
+        .await
+        .map_err(|error| AppError::database("list item media", error))?;
+
+        rows.into_iter()
+            .map(map_item_media_row)
+            .collect::<AppResult<Vec<_>>>()
     }
 
     pub async fn move_item(
@@ -397,6 +492,23 @@ impl SqliteWardrobeRepository {
 
         row.map(map_trip_item_row).transpose()
     }
+
+    async fn get_item_media(&self, id: &str) -> AppResult<Option<ItemMedia>> {
+        let mut connection = self.connect().await?;
+        let row = sqlx::query(
+            "SELECT
+                id, item_id, media_kind, relative_file_path, original_filename, mime_type,
+                file_size_bytes, duration_ms, width, height, caption, sort_order, created_at
+             FROM item_media
+             WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&mut connection)
+        .await
+        .map_err(|error| AppError::database("get item media", error))?;
+
+        row.map(map_item_media_row).transpose()
+    }
 }
 
 fn map_item_row(row: sqlx::sqlite::SqliteRow) -> AppResult<Item> {
@@ -475,6 +587,50 @@ fn map_location_row(row: sqlx::sqlite::SqliteRow) -> AppResult<Location> {
         updated_at: row
             .try_get("updated_at")
             .map_err(|error| AppError::database("read location.updated_at", error))?,
+    })
+}
+
+fn map_item_media_row(row: sqlx::sqlite::SqliteRow) -> AppResult<ItemMedia> {
+    Ok(ItemMedia {
+        id: row
+            .try_get("id")
+            .map_err(|error| AppError::database("read item_media.id", error))?,
+        item_id: row
+            .try_get("item_id")
+            .map_err(|error| AppError::database("read item_media.item_id", error))?,
+        media_kind: row
+            .try_get("media_kind")
+            .map_err(|error| AppError::database("read item_media.media_kind", error))?,
+        relative_file_path: row
+            .try_get("relative_file_path")
+            .map_err(|error| AppError::database("read item_media.relative_file_path", error))?,
+        original_filename: row
+            .try_get("original_filename")
+            .map_err(|error| AppError::database("read item_media.original_filename", error))?,
+        mime_type: row
+            .try_get("mime_type")
+            .map_err(|error| AppError::database("read item_media.mime_type", error))?,
+        file_size_bytes: row
+            .try_get("file_size_bytes")
+            .map_err(|error| AppError::database("read item_media.file_size_bytes", error))?,
+        duration_ms: row
+            .try_get("duration_ms")
+            .map_err(|error| AppError::database("read item_media.duration_ms", error))?,
+        width: row
+            .try_get("width")
+            .map_err(|error| AppError::database("read item_media.width", error))?,
+        height: row
+            .try_get("height")
+            .map_err(|error| AppError::database("read item_media.height", error))?,
+        caption: row
+            .try_get("caption")
+            .map_err(|error| AppError::database("read item_media.caption", error))?,
+        sort_order: row
+            .try_get("sort_order")
+            .map_err(|error| AppError::database("read item_media.sort_order", error))?,
+        created_at: row
+            .try_get("created_at")
+            .map_err(|error| AppError::database("read item_media.created_at", error))?,
     })
 }
 

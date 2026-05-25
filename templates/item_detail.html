@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Item</p>
+        <h2>{{ item.name }}</h2>
+        <p class="lede">Item id: <code>{{ item.id }}</code></p>
+    </div>
+    <aside class="endpoint-card">
+        <p class="panel-label">Actions</p>
+        <p class="endpoint"><a href="{{ item.edit_url }}">Edit item</a></p>
+        <p class="endpoint-note"><a href="/items">Back to the full item list</a></p>
+    </aside>
+</section>
+
+<section class="panel-grid is-status">
+    <article class="panel">
+        <h3>Item Metadata</h3>
+        <dl class="key-value-list">
+            {% for field in fields %}
+            <div>
+                <dt>{{ field.label }}</dt>
+                <dd>{{ field.value }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+    </article>
+
+    <article class="panel wide-panel">
+        <h3>Media Gallery</h3>
+        {% if has_media %}
+        <div class="media-grid">
+            {% for entry in media %}
+            <figure class="media-card">
+                {% if entry.media_kind == "image" %}
+                <img src="{{ entry.url }}" alt="{{ entry.original_filename }}">
+                {% else %}
+                <video controls preload="metadata" src="{{ entry.url }}"></video>
+                {% endif %}
+                <figcaption>
+                    <strong>{{ entry.original_filename }}</strong>
+                    <span>{{ entry.mime_type }} · {{ entry.file_size_label }}</span>
+                    {% if entry.caption != "" %}
+                    <em>{{ entry.caption }}</em>
+                    {% endif %}
+                </figcaption>
+            </figure>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">No media is attached to this item yet.</p>
+        {% endif %}
+
+        <form method="post" action="{{ item.upload_url }}" enctype="multipart/form-data" class="upload-form">
+            <h4>Upload media</h4>
+            <label>
+                <span>Caption</span>
+                <input type="text" name="caption">
+            </label>
+            <label>
+                <span>Images or videos</span>
+                <input type="file" name="file" multiple accept="image/*,video/*" required>
+            </label>
+            <button type="submit">Upload media</button>
+        </form>
+    </article>
+</section>
+{% endblock %}

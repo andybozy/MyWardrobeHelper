@@ -6,7 +6,8 @@ description = "Local-first wardrobe management system with a single Rust backend
 
 [dependencies]
 askama = "0.14.0"
-axum = "0.8.6"
+axum = { version = "0.8.6", features = ["multipart"] }
+mime_guess = "2.0.5"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }

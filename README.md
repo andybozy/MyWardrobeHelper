@@ -33,6 +33,7 @@ The repository now has its first backend lifecycle and browser UI layers:
 - A server-rendered browser UI now ships with a dashboard and status page
 - A versioned JSON API foundation now ships under `/api/v1`
 - An embedded STDIO MCP server now ships for live wardrobe tool use
+- Item create/view/edit flows and filesystem-backed media upload now work through the backend
 - iOS companion app still exists as a native placeholder shell
 - The remaining API surface and iOS client work remain planned in `TODO.md`
 

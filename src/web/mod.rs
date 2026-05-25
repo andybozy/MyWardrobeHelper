@@ -1,11 +1,12 @@
 use askama::Template;
+use axum::Router;
 use axum::extract::State;
-use axum::http::{header, StatusCode};
+use axum::http::{StatusCode, header};
 use axum::response::{Html, IntoResponse};
 use axum::routing::get;
-use axum::Router;
 use tokio::net::TcpListener;
 
+use crate::api;
 use crate::app::{self, AppContext};
 use crate::domain::{HealthSnapshot, Item, Location, Trip};
 use crate::error::{AppError, AppResult};
@@ -104,7 +105,10 @@ fn router(context: AppContext) -> Router {
         .route("/", get(home_handler))
         .route("/status", get(status_handler))
         .route("/assets/app.css", get(stylesheet_handler))
-        .with_state(WebState { context })
+        .with_state(WebState {
+            context: context.clone(),
+        })
+        .nest("/api/v1", api::router(context))
 }
 
 async fn home_handler(State(state): State<WebState>) -> Result<Html<String>, StatusCode> {
@@ -160,14 +164,24 @@ async fn home_handler(State(state): State<WebState>) -> Result<Html<String>, Sta
         has_recent_items: !recent_items.is_empty(),
         has_recent_locations: !recent_locations.is_empty(),
         has_recent_trips: !recent_trips.is_empty(),
-        recent_items: recent_items.into_iter().rev().take(5).map(item_entry).collect(),
+        recent_items: recent_items
+            .into_iter()
+            .rev()
+            .take(5)
+            .map(item_entry)
+            .collect(),
         recent_locations: recent_locations
             .into_iter()
             .rev()
             .take(5)
             .map(location_entry)
             .collect(),
-        recent_trips: recent_trips.into_iter().rev().take(5).map(trip_entry).collect(),
+        recent_trips: recent_trips
+            .into_iter()
+            .rev()
+            .take(5)
+            .map(trip_entry)
+            .collect(),
     };
 
     render_template(&template)
@@ -217,10 +231,7 @@ async fn status_handler(State(state): State<WebState>) -> Result<Html<String>, S
 
 async fn stylesheet_handler() -> impl IntoResponse {
     (
-        [(
-            header::CONTENT_TYPE,
-            "text/css; charset=utf-8",
-        )],
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
         include_str!("../../assets/app.css"),
     )
 }
@@ -295,7 +306,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    use axum::body::{to_bytes, Body};
+    use axum::body::{Body, to_bytes};
     use axum::http::Request;
     use tower::ServiceExt;
 

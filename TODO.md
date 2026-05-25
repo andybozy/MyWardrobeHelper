@@ -1,21 +1,3 @@
-## SEC-006 - JSON API foundation and OpenAPI contract
-Objective:
-- Implement the versioned JSON API foundation.
-- Add health endpoint and first resource endpoints.
-- Introduce a documented error contract.
-- Add an OpenAPI document and docs/API.md.
-
-Acceptance criteria:
-- /api/v1/health exists.
-- /api/v1/server-info exists.
-- The project has a documented JSON error schema.
-- At least the first item and location read/write flows are available through the API.
-- docs/API.md is meaningful and current.
-- openapi/openapi.json or openapi/openapi.yaml exists and is updated.
-
-Notes:
-- Keep the API contract stable and boring.
-
 ## SEC-007 - Embedded MCP server and Codex project integration
 Objective:
 - Implement the embedded MCP server subcommand.

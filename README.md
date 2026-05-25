@@ -31,8 +31,9 @@ The repository now has its first backend lifecycle and browser UI layers:
 - SQLite migrations create the initial schema for items, media, locations, movements, trips, trip items, and physical tags
 - Shared domain, repository, service, and app-context layers exist for health, item, location, and trip basics
 - A server-rendered browser UI now ships with a dashboard and status page
+- A versioned JSON API foundation now ships under `/api/v1`
 - iOS companion app still exists as a native placeholder shell
-- JSON API and MCP transport remain planned in `TODO.md`
+- MCP transport and the remaining API surface remain planned in `TODO.md`
 
 ## Repository layout
 
@@ -63,7 +64,7 @@ Current command behavior:
 
 - `init` creates the external data directory layout, creates `wardrobe.sqlite3`, and runs SQLite migrations
 - `doctor` checks the resolved config, filesystem layout, writability, and database schema health
-- `serve` starts the local HTTP server, serves the browser UI, and prints the local and LAN URLs when relevant
+- `serve` starts the local HTTP server, serves the browser UI and `/api/v1`, and prints the local and LAN URLs when relevant
 - `backup` copies the current database file into `backups/`
 - `export` writes a placeholder JSON export describing the runtime layout
 - `mcp serve` reserves the embedded MCP command surface for `SEC-007`

@@ -80,3 +80,20 @@ Acceptance criteria met:
 - CSS/JS remains minimal and local.
 Notes:
 - The web transport now exists; the JSON API and embedded MCP transports remain the next planned backend surfaces.
+
+## SEC-006 - JSON API foundation and OpenAPI contract
+Completed: 2026-05-25
+Summary:
+- Added a versioned `/api/v1` router with health and server-info endpoints plus item and location list/create/get flows.
+- Added a stable JSON error envelope with explicit API error codes.
+- Nested the API under the local HTTP server so the browser UI and API share the same backend runtime.
+- Added API endpoint tests, current API docs, and a hand-authored OpenAPI document.
+Acceptance criteria met:
+- `/api/v1/health` exists.
+- `/api/v1/server-info` exists.
+- The project has a documented JSON error schema.
+- First item and location read/write flows are available through the API.
+- `docs/API.md` is meaningful and current.
+- `openapi/openapi.json` exists and reflects the current API surface.
+Notes:
+- The initial API focuses on health plus item/location basics; trip, movement, media, and update routes remain future sections.

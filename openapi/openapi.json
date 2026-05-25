@@ -1,0 +1,362 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MyWardrobeHelper API",
+    "version": "0.1.0",
+    "description": "Local-first wardrobe management API foundation for health, server info, items, and locations."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8787/api/v1",
+      "description": "Default local development server"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Read API health",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "API and shared service layer are reachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/server-info": {
+      "get": {
+        "summary": "Read server runtime info",
+        "operationId": "getServerInfo",
+        "responses": {
+          "200": {
+            "description": "Current runtime URLs and data paths",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items": {
+      "get": {
+        "summary": "List items",
+        "operationId": "listItems",
+        "responses": {
+          "200": {
+            "description": "Current wardrobe items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemsListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create an item",
+        "operationId": "createItem",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{id}": {
+      "get": {
+        "summary": "Get an item",
+        "operationId": "getItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/locations": {
+      "get": {
+        "summary": "List locations",
+        "operationId": "listLocations",
+        "responses": {
+          "200": {
+            "description": "Current storage locations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationsListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a location",
+        "operationId": "createLocation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLocationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Location"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/locations/{id}": {
+      "get": {
+        "summary": "Get a location",
+        "operationId": "getLocation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Location found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Location"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Location not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "item_count", "location_count", "trip_count"],
+        "properties": {
+          "status": { "type": "string" },
+          "item_count": { "type": "integer" },
+          "location_count": { "type": "integer" },
+          "trip_count": { "type": "integer" }
+        }
+      },
+      "ServerInfoResponse": {
+        "type": "object",
+        "required": ["application", "version", "bind_url", "local_url", "data_dir", "database_file"],
+        "properties": {
+          "application": { "type": "string" },
+          "version": { "type": "string" },
+          "bind_url": { "type": "string" },
+          "local_url": { "type": "string" },
+          "lan_url": { "type": ["string", "null"] },
+          "data_dir": { "type": "string" },
+          "database_file": { "type": "string" }
+        }
+      },
+      "ItemsListResponse": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Item" }
+          }
+        }
+      },
+      "LocationsListResponse": {
+        "type": "object",
+        "required": ["locations"],
+        "properties": {
+          "locations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Location" }
+          }
+        }
+      },
+      "CreateItemRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "category": { "type": ["string", "null"] },
+          "subcategory": { "type": ["string", "null"] },
+          "brand": { "type": ["string", "null"] },
+          "size": { "type": ["string", "null"] },
+          "color_primary": { "type": ["string", "null"] },
+          "color_secondary": { "type": ["string", "null"] },
+          "material": { "type": ["string", "null"] },
+          "season": { "type": ["string", "null"] },
+          "formality": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "current_location_id": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "CreateLocationRequest": {
+        "type": "object",
+        "required": ["name", "location_type"],
+        "properties": {
+          "name": { "type": "string" },
+          "location_type": { "type": "string" },
+          "parent_id": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "Item": {
+        "type": "object",
+        "required": ["id", "name", "created_at", "updated_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "category": { "type": ["string", "null"] },
+          "subcategory": { "type": ["string", "null"] },
+          "brand": { "type": ["string", "null"] },
+          "size": { "type": ["string", "null"] },
+          "color_primary": { "type": ["string", "null"] },
+          "color_secondary": { "type": ["string", "null"] },
+          "material": { "type": ["string", "null"] },
+          "season": { "type": ["string", "null"] },
+          "formality": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "current_location_id": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "created_at": { "type": "string" },
+          "updated_at": { "type": "string" }
+        }
+      },
+      "Location": {
+        "type": "object",
+        "required": ["id", "name", "location_type", "created_at", "updated_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "location_type": { "type": "string" },
+          "parent_id": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "created_at": { "type": "string" },
+          "updated_at": { "type": "string" }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}

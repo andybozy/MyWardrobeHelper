@@ -3,7 +3,7 @@
   "info": {
     "title": "MyWardrobeHelper API",
     "version": "0.1.0",
-    "description": "Local-first wardrobe management API foundation for health, items, media, locations, and movement history."
+    "description": "Local-first wardrobe management API foundation for health, items, media, locations, movement history, trips, and physical tag resolution."
   },
   "servers": [
     {
@@ -774,6 +774,111 @@
           }
         }
       }
+    },
+    "/tags": {
+      "get": {
+        "summary": "List physical tags",
+        "operationId": "listTags",
+        "responses": {
+          "200": {
+            "description": "Current physical tag records",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PhysicalTagsListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a physical tag",
+        "operationId": "createTag",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreatePhysicalTagRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created physical tag",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PhysicalTag" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags/{id}": {
+      "get": {
+        "summary": "Get a physical tag",
+        "operationId": "getTag",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Physical tag found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PhysicalTag" }
+              }
+            }
+          },
+          "404": {
+            "description": "Tag not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags/resolve": {
+      "post": {
+        "summary": "Resolve a physical tag to its bound entity",
+        "operationId": "resolveTag",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResolvePhysicalTagRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolved physical tag",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResolvedPhysicalTagResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Tag not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -862,6 +967,16 @@
           "trip_items": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/TripItem" }
+          }
+        }
+      },
+      "PhysicalTagsListResponse": {
+        "type": "object",
+        "required": ["tags"],
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PhysicalTag" }
           }
         }
       },
@@ -960,6 +1075,31 @@
           "planned_day": { "type": ["string", "null"] },
           "status": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] }
+        }
+      },
+      "CreatePhysicalTagRequest": {
+        "type": "object",
+        "required": [
+          "tag_type",
+          "external_identifier",
+          "bound_entity_type",
+          "bound_entity_id"
+        ],
+        "properties": {
+          "tag_type": { "type": "string" },
+          "external_identifier": { "type": "string" },
+          "label": { "type": ["string", "null"] },
+          "bound_entity_type": { "type": "string" },
+          "bound_entity_id": { "type": "string" },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "ResolvePhysicalTagRequest": {
+        "type": "object",
+        "required": ["tag_type", "external_identifier"],
+        "properties": {
+          "tag_type": { "type": "string" },
+          "external_identifier": { "type": "string" }
         }
       },
       "Item": {
@@ -1066,6 +1206,37 @@
           "planned_day": { "type": ["string", "null"] },
           "status": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] }
+        }
+      },
+      "PhysicalTag": {
+        "type": "object",
+        "required": [
+          "id",
+          "tag_type",
+          "external_identifier",
+          "bound_entity_type",
+          "bound_entity_id",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "tag_type": { "type": "string" },
+          "external_identifier": { "type": "string" },
+          "label": { "type": ["string", "null"] },
+          "bound_entity_type": { "type": "string" },
+          "bound_entity_id": { "type": "string" },
+          "notes": { "type": ["string", "null"] },
+          "created_at": { "type": "string" },
+          "updated_at": { "type": "string" }
+        }
+      },
+      "ResolvedPhysicalTagResponse": {
+        "type": "object",
+        "required": ["tag"],
+        "properties": {
+          "tag": { "$ref": "#/components/schemas/PhysicalTag" },
+          "entity_name": { "type": ["string", "null"] }
         }
       },
       "ErrorEnvelope": {

@@ -186,6 +186,41 @@ pub struct UpdateTripItemInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PhysicalTag {
+    pub id: String,
+    pub tag_type: String,
+    pub external_identifier: String,
+    pub label: Option<String>,
+    pub bound_entity_type: String,
+    pub bound_entity_id: String,
+    pub notes: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NewPhysicalTag {
+    pub tag_type: String,
+    pub external_identifier: String,
+    pub label: Option<String>,
+    pub bound_entity_type: String,
+    pub bound_entity_id: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolvePhysicalTagInput {
+    pub tag_type: String,
+    pub external_identifier: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolvedPhysicalTag {
+    pub tag: PhysicalTag,
+    pub entity_name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HealthSnapshot {
     pub item_count: i64,
     pub location_count: i64,

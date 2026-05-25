@@ -11,6 +11,7 @@ The JSON API foundation is available under `/api/v1`. It currently covers:
 - location list/create/get
 - trip list/create/get/update
 - trip item list/create/update/delete
+- physical tag list/create/get/resolve
 - a stable JSON error envelope
 
 Item deletion and media deletion remain future sections.
@@ -64,6 +65,13 @@ Trip items:
 - `POST /api/v1/trips/:id/items`
 - `PATCH /api/v1/trips/:id/items/:trip_item_id`
 - `DELETE /api/v1/trips/:id/items/:trip_item_id`
+
+Tags:
+
+- `GET /api/v1/tags`
+- `POST /api/v1/tags`
+- `GET /api/v1/tags/:id`
+- `POST /api/v1/tags/resolve`
 
 ## Response shape
 
@@ -266,6 +274,66 @@ Response: `200 OK`
 }
 ```
 
+`POST /api/v1/tags`
+
+Request:
+
+```json
+{
+  "tag_type": "nfc",
+  "external_identifier": "04-A2-88-FF",
+  "label": "Overshirt NFC",
+  "bound_entity_type": "item",
+  "bound_entity_id": "item-1779738000000-0"
+}
+```
+
+Response: `201 Created`
+
+```json
+{
+  "id": "tag-1779739000000-0",
+  "tag_type": "nfc",
+  "external_identifier": "04-A2-88-FF",
+  "label": "Overshirt NFC",
+  "bound_entity_type": "item",
+  "bound_entity_id": "item-1779738000000-0",
+  "notes": null,
+  "created_at": "2026-05-26 10:00:00",
+  "updated_at": "2026-05-26 10:00:00"
+}
+```
+
+`POST /api/v1/tags/resolve`
+
+Request:
+
+```json
+{
+  "tag_type": "nfc",
+  "external_identifier": "04-A2-88-FF"
+}
+```
+
+Response: `200 OK`
+
+```json
+{
+  "tag": {
+    "id": "tag-1779739000000-0",
+    "tag_type": "nfc",
+    "external_identifier": "04-A2-88-FF",
+    "label": "Overshirt NFC",
+    "bound_entity_type": "item",
+    "bound_entity_id": "item-1779738000000-0",
+    "notes": null,
+    "created_at": "2026-05-26 10:00:00",
+    "updated_at": "2026-05-26 10:00:00"
+  },
+  "entity_name": "Corduroy Overshirt"
+}
+```
+
 ## Error contract
 
 Every API error uses the same top-level envelope:
@@ -291,6 +359,7 @@ Current error codes include:
 - `ITEM_NOT_FOUND`
 - `LOCATION_NOT_FOUND`
 - `TRIP_NOT_FOUND`
+- `TAG_NOT_FOUND`
 - `SERVICE_NOT_READY`
 - `INTERNAL_ERROR`
 

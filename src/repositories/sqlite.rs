@@ -5,8 +5,9 @@ use sqlx::{Connection, Row, SqliteConnection};
 use crate::db;
 use crate::domain::{
     HealthSnapshot, Item, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement, NewItem,
-    NewItemMediaInput, NewLocation, NewTrip, NewTripItem, Trip, TripItem, UpdateItemInput,
-    UpdateTripInput, UpdateTripItemInput,
+    NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag,
+    ResolvePhysicalTagInput, ResolvedPhysicalTag, Trip, TripItem, UpdateItemInput, UpdateTripInput,
+    UpdateTripItemInput,
 };
 use crate::error::{AppError, AppResult};
 
@@ -521,6 +522,98 @@ impl SqliteWardrobeRepository {
         Ok(())
     }
 
+    pub async fn create_physical_tag(
+        &self,
+        tag_id: &str,
+        input: &NewPhysicalTag,
+    ) -> AppResult<PhysicalTag> {
+        let mut connection = self.connect().await?;
+        sqlx::query(
+            "INSERT INTO physical_tags (
+                id, tag_type, external_identifier, label, bound_entity_type, bound_entity_id, notes
+             ) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(tag_id)
+        .bind(&input.tag_type)
+        .bind(&input.external_identifier)
+        .bind(&input.label)
+        .bind(&input.bound_entity_type)
+        .bind(&input.bound_entity_id)
+        .bind(&input.notes)
+        .execute(&mut connection)
+        .await
+        .map_err(|error| AppError::database("insert physical tag", error))?;
+
+        self.get_physical_tag(tag_id).await?.ok_or_else(|| {
+            AppError::database("load physical tag after insert", sqlx::Error::RowNotFound)
+        })
+    }
+
+    pub async fn list_physical_tags(&self) -> AppResult<Vec<PhysicalTag>> {
+        let mut connection = self.connect().await?;
+        let rows = sqlx::query(
+            "SELECT
+                id, tag_type, external_identifier, label, bound_entity_type, bound_entity_id,
+                notes, created_at, updated_at
+             FROM physical_tags
+             ORDER BY created_at, id",
+        )
+        .fetch_all(&mut connection)
+        .await
+        .map_err(|error| AppError::database("list physical tags", error))?;
+
+        rows.into_iter()
+            .map(map_physical_tag_row)
+            .collect::<AppResult<Vec<_>>>()
+    }
+
+    pub async fn get_physical_tag(&self, id: &str) -> AppResult<Option<PhysicalTag>> {
+        let mut connection = self.connect().await?;
+        let row = sqlx::query(
+            "SELECT
+                id, tag_type, external_identifier, label, bound_entity_type, bound_entity_id,
+                notes, created_at, updated_at
+             FROM physical_tags
+             WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&mut connection)
+        .await
+        .map_err(|error| AppError::database("get physical tag", error))?;
+
+        row.map(map_physical_tag_row).transpose()
+    }
+
+    pub async fn resolve_physical_tag(
+        &self,
+        input: &ResolvePhysicalTagInput,
+    ) -> AppResult<Option<ResolvedPhysicalTag>> {
+        let mut connection = self.connect().await?;
+        let row = sqlx::query(
+            "SELECT
+                id, tag_type, external_identifier, label, bound_entity_type, bound_entity_id,
+                notes, created_at, updated_at
+             FROM physical_tags
+             WHERE tag_type = ? AND external_identifier = ?",
+        )
+        .bind(&input.tag_type)
+        .bind(&input.external_identifier)
+        .fetch_optional(&mut connection)
+        .await
+        .map_err(|error| AppError::database("resolve physical tag", error))?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let tag = map_physical_tag_row(row)?;
+        let entity_name = self
+            .get_bound_entity_name(&tag.bound_entity_type, &tag.bound_entity_id)
+            .await?;
+
+        Ok(Some(ResolvedPhysicalTag { tag, entity_name }))
+    }
+
     pub async fn health_snapshot(&self) -> AppResult<HealthSnapshot> {
         let mut connection = self.connect().await?;
 
@@ -572,6 +665,30 @@ impl SqliteWardrobeRepository {
         .map_err(|error| AppError::database("get item media", error))?;
 
         row.map(map_item_media_row).transpose()
+    }
+
+    async fn get_bound_entity_name(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+    ) -> AppResult<Option<String>> {
+        let mut connection = self.connect().await?;
+
+        match entity_type {
+            "item" => sqlx::query_scalar::<_, String>("SELECT name FROM items WHERE id = ?")
+                .bind(entity_id)
+                .fetch_optional(&mut connection)
+                .await
+                .map_err(|error| AppError::database("read bound item name", error)),
+            "location" => {
+                sqlx::query_scalar::<_, String>("SELECT name FROM locations WHERE id = ?")
+                    .bind(entity_id)
+                    .fetch_optional(&mut connection)
+                    .await
+                    .map_err(|error| AppError::database("read bound location name", error))
+            }
+            _ => Ok(None),
+        }
     }
 }
 
@@ -782,6 +899,38 @@ fn map_trip_item_row(row: sqlx::sqlite::SqliteRow) -> AppResult<TripItem> {
         notes: row
             .try_get("notes")
             .map_err(|error| AppError::database("read trip_item.notes", error))?,
+    })
+}
+
+fn map_physical_tag_row(row: sqlx::sqlite::SqliteRow) -> AppResult<PhysicalTag> {
+    Ok(PhysicalTag {
+        id: row
+            .try_get("id")
+            .map_err(|error| AppError::database("read physical_tag.id", error))?,
+        tag_type: row
+            .try_get("tag_type")
+            .map_err(|error| AppError::database("read physical_tag.tag_type", error))?,
+        external_identifier: row
+            .try_get("external_identifier")
+            .map_err(|error| AppError::database("read physical_tag.external_identifier", error))?,
+        label: row
+            .try_get("label")
+            .map_err(|error| AppError::database("read physical_tag.label", error))?,
+        bound_entity_type: row
+            .try_get("bound_entity_type")
+            .map_err(|error| AppError::database("read physical_tag.bound_entity_type", error))?,
+        bound_entity_id: row
+            .try_get("bound_entity_id")
+            .map_err(|error| AppError::database("read physical_tag.bound_entity_id", error))?,
+        notes: row
+            .try_get("notes")
+            .map_err(|error| AppError::database("read physical_tag.notes", error))?,
+        created_at: row
+            .try_get("created_at")
+            .map_err(|error| AppError::database("read physical_tag.created_at", error))?,
+        updated_at: row
+            .try_get("updated_at")
+            .map_err(|error| AppError::database("read physical_tag.updated_at", error))?,
     })
 }
 

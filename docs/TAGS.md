@@ -2,7 +2,14 @@
 
 ## Current stage
 
-Physical tag support is not implemented yet. The groundwork is planned in `SEC-014` for the backend and `SEC-015` for the iOS app.
+Backend groundwork is now implemented:
+
+- physical tags are stored in SQLite
+- a tag can bind to either an item or a location
+- the backend can register a tag and resolve it by `(tag_type, external_identifier)`
+- the JSON API exposes list/create/get/resolve tag routes
+
+The iOS scanning side is still future work in `SEC-015`.
 
 ## Product direction
 
@@ -22,7 +29,60 @@ Planned tag types:
 
 - a tag binds to exactly one entity
 - the bound entity can be either an item or a location
+- the backend validates that the bound entity exists at registration time
 - the backend remains the source of truth for resolution logic
+
+Current backend fields:
+
+- `tag_type`
+- `external_identifier`
+- `label`
+- `bound_entity_type`
+- `bound_entity_id`
+- `notes`
+
+## Current API surface
+
+- `GET /api/v1/tags`
+- `POST /api/v1/tags`
+- `GET /api/v1/tags/:id`
+- `POST /api/v1/tags/resolve`
+
+Example resolve request:
+
+```json
+{
+  "tag_type": "nfc",
+  "external_identifier": "04-A2-88-FF"
+}
+```
+
+Example resolve response:
+
+```json
+{
+  "tag": {
+    "id": "tag-1779739000000-0",
+    "tag_type": "nfc",
+    "external_identifier": "04-A2-88-FF",
+    "label": "Overshirt NFC",
+    "bound_entity_type": "item",
+    "bound_entity_id": "item-1779738000000-0",
+    "notes": null,
+    "created_at": "2026-05-26 10:00:00",
+    "updated_at": "2026-05-26 10:00:00"
+  },
+  "entity_name": "Corduroy Overshirt"
+}
+```
+
+## Honest limitations
+
+- no iOS scanner integration yet
+- no NFC write flow
+- no QR/barcode camera scanner yet
+- no tag editing or deletion API yet
+- no MCP tools for tags yet
 
 ## Future examples
 

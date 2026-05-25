@@ -1,19 +1,3 @@
-## SEC-014 - Physical tag domain and backend future-ready contracts
-Objective:
-- Introduce the PhysicalTag domain cleanly if not already done.
-- Add backend service logic and API direction for registering and resolving physical tags.
-- Document the future behavior without pretending the full feature is already finished.
-
-Acceptance criteria:
-- The backend has a clear PhysicalTag model and service direction.
-- docs/TAGS.md explains the intended tag model.
-- There is a clean path for a tag to bind to either an item or a location.
-- If API endpoints are added, they are documented and tested.
-- No fake “fully complete NFC support” claim is made unless it truly works end-to-end.
-
-Notes:
-- This section is about future-ready architecture and honest groundwork.
-
 ## SEC-015 - iOS tag-scanning groundwork and future reader integration
 Objective:
 - Prepare the iOS app for future physical tag reading.

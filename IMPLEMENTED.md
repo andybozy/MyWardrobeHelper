@@ -213,3 +213,19 @@ Acceptance criteria met:
 - `docs/IOS.md` and `docs/API.md` describe the upload behavior.
 Notes:
 - The current iOS detail screen shows uploaded media metadata rather than full inline image/video previews.
+
+## SEC-014 - Physical tag domain and backend future-ready contracts
+Completed: 2026-05-26
+Summary:
+- Added explicit physical-tag domain models plus backend service and repository operations for tag registration and resolution.
+- Added JSON API routes for list/create/get/resolve physical tags with the existing stable error envelope.
+- Updated tag documentation and OpenAPI so the current backend contract is explicit and future-ready.
+- Added tests and live smoke verification for item-bound and location-bound tag registration and resolution.
+Acceptance criteria met:
+- The backend has a clear `PhysicalTag` model and service direction.
+- `docs/TAGS.md` explains the intended tag model and current backend status.
+- There is a clean path for a tag to bind to either an item or a location.
+- Added API endpoints are documented and tested.
+- No fake “fully complete NFC support” claim is made.
+Notes:
+- The groundwork is intentionally backend-only here; iOS scanning integration remains the next dedicated section.

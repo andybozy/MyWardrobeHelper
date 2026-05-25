@@ -3,8 +3,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::{
     HealthSnapshot, Item, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement, NewItem,
-    NewItemMediaInput, NewLocation, NewTrip, NewTripItem, Trip, TripItem, UpdateItemInput,
-    UpdateTripInput, UpdateTripItemInput,
+    NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag,
+    ResolvePhysicalTagInput, ResolvedPhysicalTag, Trip, TripItem, UpdateItemInput, UpdateTripInput,
+    UpdateTripItemInput,
 };
 use crate::error::{AppError, AppResult};
 use crate::infra::MediaStorage;
@@ -193,6 +194,68 @@ impl WardrobeService {
         self.repository.get_location(location_id).await
     }
 
+    pub async fn register_physical_tag(&self, input: NewPhysicalTag) -> AppResult<PhysicalTag> {
+        let tag_type = normalize_tag_type(&input.tag_type)?;
+        let external_identifier = require_name("external identifier", input.external_identifier)?;
+        let bound_entity_type = normalize_bound_entity_type(&input.bound_entity_type)?;
+        let bound_entity_id =
+            require_identifier("bound entity id", &input.bound_entity_id)?.to_string();
+
+        match bound_entity_type.as_str() {
+            "item" if self.repository.get_item(&bound_entity_id).await?.is_none() => {
+                return Err(AppError::invalid_argument(format!(
+                    "item `{bound_entity_id}` does not exist"
+                )));
+            }
+            "location"
+                if self
+                    .repository
+                    .get_location(&bound_entity_id)
+                    .await?
+                    .is_none() =>
+            {
+                return Err(AppError::invalid_argument(format!(
+                    "location `{bound_entity_id}` does not exist"
+                )));
+            }
+            _ => {}
+        }
+
+        let normalized = NewPhysicalTag {
+            tag_type,
+            external_identifier,
+            label: normalize_optional(input.label),
+            bound_entity_type,
+            bound_entity_id,
+            notes: normalize_optional(input.notes),
+        };
+
+        self.repository
+            .create_physical_tag(&generate_id("tag"), &normalized)
+            .await
+    }
+
+    pub async fn list_physical_tags(&self) -> AppResult<Vec<PhysicalTag>> {
+        self.repository.list_physical_tags().await
+    }
+
+    pub async fn get_physical_tag(&self, id: &str) -> AppResult<Option<PhysicalTag>> {
+        let tag_id = require_identifier("tag id", id)?;
+        self.repository.get_physical_tag(tag_id).await
+    }
+
+    pub async fn resolve_physical_tag(
+        &self,
+        input: ResolvePhysicalTagInput,
+    ) -> AppResult<Option<ResolvedPhysicalTag>> {
+        let normalized = ResolvePhysicalTagInput {
+            tag_type: normalize_tag_type(&input.tag_type)?,
+            external_identifier: require_name("external identifier", input.external_identifier)?,
+        };
+
+        self.repository.resolve_physical_tag(&normalized).await
+    }
+
     pub async fn create_trip(&self, input: NewTrip) -> AppResult<Trip> {
         let normalized = NewTrip {
             name: require_name("trip name", input.name)?,
@@ -369,6 +432,28 @@ fn media_kind_from_mime(mime_type: &str) -> AppResult<&'static str> {
     }
 }
 
+fn normalize_tag_type(value: &str) -> AppResult<String> {
+    let normalized = require_identifier("tag type", value)?.trim().to_lowercase();
+    match normalized.as_str() {
+        "nfc" | "qr" | "barcode" | "other" => Ok(normalized),
+        _ => Err(AppError::invalid_argument(format!(
+            "unsupported tag type `{value}`"
+        ))),
+    }
+}
+
+fn normalize_bound_entity_type(value: &str) -> AppResult<String> {
+    let normalized = require_identifier("bound entity type", value)?
+        .trim()
+        .to_lowercase();
+    match normalized.as_str() {
+        "item" | "location" => Ok(normalized),
+        _ => Err(AppError::invalid_argument(format!(
+            "unsupported bound entity type `{value}`"
+        ))),
+    }
+}
+
 fn generate_id(prefix: &str) -> String {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -391,8 +476,9 @@ mod tests {
     use crate::app::{init_app, open_context};
     use crate::config::{AppConfig, DEFAULT_HOST, DEFAULT_PORT};
     use crate::domain::{
-        MoveItemInput, NewItem, NewItemMediaInput, NewLocation, NewTrip, NewTripItem,
-        UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
+        MoveItemInput, NewItem, NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip,
+        NewTripItem, ResolvePhysicalTagInput, UpdateItemInput, UpdateTripInput,
+        UpdateTripItemInput,
     };
 
     use super::*;
@@ -860,6 +946,90 @@ mod tests {
                 .data_dir
                 .join(&media_list[0].relative_file_path)
                 .is_file()
+        );
+    }
+
+    #[tokio::test]
+    async fn register_and_resolve_physical_tag_for_item() {
+        let sandbox = ServiceSandbox::new();
+        let service = sandbox.service().await;
+
+        let item = service
+            .create_item(NewItem {
+                name: "Corduroy Overshirt".to_string(),
+                category: None,
+                subcategory: None,
+                brand: None,
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: None,
+                formality: None,
+                status: None,
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create item");
+
+        let tag = service
+            .register_physical_tag(NewPhysicalTag {
+                tag_type: "nfc".to_string(),
+                external_identifier: "04-A2-88-FF".to_string(),
+                label: Some("Overshirt NFC".to_string()),
+                bound_entity_type: "item".to_string(),
+                bound_entity_id: item.id.clone(),
+                notes: None,
+            })
+            .await
+            .expect("register tag");
+
+        let resolved = service
+            .resolve_physical_tag(ResolvePhysicalTagInput {
+                tag_type: "nfc".to_string(),
+                external_identifier: "04-A2-88-FF".to_string(),
+            })
+            .await
+            .expect("resolve tag")
+            .expect("tag should resolve");
+
+        assert_eq!(tag.bound_entity_type, "item");
+        assert_eq!(resolved.tag.bound_entity_id, item.id);
+        assert_eq!(resolved.entity_name.as_deref(), Some("Corduroy Overshirt"));
+    }
+
+    #[tokio::test]
+    async fn register_physical_tag_for_location_validates_binding() {
+        let sandbox = ServiceSandbox::new();
+        let service = sandbox.service().await;
+
+        let location = service
+            .create_location(NewLocation {
+                name: "Cabin Bag".to_string(),
+                location_type: "Luggage".to_string(),
+                parent_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create location");
+
+        let tag = service
+            .register_physical_tag(NewPhysicalTag {
+                tag_type: "qr".to_string(),
+                external_identifier: "bag-qr-001".to_string(),
+                label: Some("Cabin bag code".to_string()),
+                bound_entity_type: "location".to_string(),
+                bound_entity_id: location.id.clone(),
+                notes: Some("Printed sticker".to_string()),
+            })
+            .await
+            .expect("register location tag");
+
+        assert_eq!(tag.bound_entity_type, "location");
+        assert_eq!(
+            service.list_physical_tags().await.expect("list tags").len(),
+            1
         );
     }
 

@@ -9,7 +9,8 @@ use serde_json::{Value, json};
 use crate::app::AppContext;
 use crate::domain::{
     Item, ItemMedia, Location, MoveItemInput, Movement, NewItem, NewItemMediaInput, NewLocation,
-    NewTrip, NewTripItem, Trip, TripItem, UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
+    NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag, ResolvePhysicalTagInput,
+    ResolvedPhysicalTag, Trip, TripItem, UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
 };
 use crate::error::AppError;
 
@@ -53,6 +54,11 @@ struct TripsListResponse {
 }
 
 #[derive(Debug, Serialize)]
+struct PhysicalTagsListResponse {
+    tags: Vec<PhysicalTagResponse>,
+}
+
+#[derive(Debug, Serialize)]
 struct ItemMediaListResponse {
     media: Vec<ItemMediaResponse>,
 }
@@ -60,6 +66,12 @@ struct ItemMediaListResponse {
 #[derive(Debug, Serialize)]
 struct TripItemsListResponse {
     trip_items: Vec<TripItemResponse>,
+}
+
+#[derive(Debug, Serialize)]
+struct ResolvedPhysicalTagResponse {
+    tag: PhysicalTagResponse,
+    entity_name: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -138,6 +150,19 @@ struct TripItemResponse {
     planned_day: Option<String>,
     status: Option<String>,
     notes: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct PhysicalTagResponse {
+    id: String,
+    tag_type: String,
+    external_identifier: String,
+    label: Option<String>,
+    bound_entity_type: String,
+    bound_entity_id: String,
+    notes: Option<String>,
+    created_at: String,
+    updated_at: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -231,10 +256,26 @@ struct CreateTripItemRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CreatePhysicalTagRequest {
+    tag_type: String,
+    external_identifier: String,
+    label: Option<String>,
+    bound_entity_type: String,
+    bound_entity_id: String,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct PatchTripItemRequest {
     planned_day: Option<String>,
     status: Option<String>,
     notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ResolvePhysicalTagRequest {
+    tag_type: String,
+    external_identifier: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -290,6 +331,9 @@ pub fn router(context: AppContext) -> Router {
             "/trips/{id}/items/{trip_item_id}",
             axum::routing::patch(update_trip_item_handler).delete(delete_trip_item_handler),
         )
+        .route("/tags", get(list_tags_handler).post(create_tag_handler))
+        .route("/tags/resolve", post(resolve_tag_handler))
+        .route("/tags/{id}", get(get_tag_handler))
         .with_state(ApiState { context })
 }
 
@@ -800,6 +844,92 @@ async fn delete_trip_item_handler(
     Ok(StatusCode::NO_CONTENT)
 }
 
+async fn list_tags_handler(
+    State(state): State<ApiState>,
+) -> Result<Json<PhysicalTagsListResponse>, ApiError> {
+    let tags = state
+        .context
+        .service
+        .list_physical_tags()
+        .await
+        .map_err(ApiError::from)?;
+
+    Ok(Json(PhysicalTagsListResponse {
+        tags: tags.into_iter().map(PhysicalTagResponse::from).collect(),
+    }))
+}
+
+async fn create_tag_handler(
+    State(state): State<ApiState>,
+    Json(request): Json<CreatePhysicalTagRequest>,
+) -> Result<(StatusCode, Json<PhysicalTagResponse>), ApiError> {
+    let tag = state
+        .context
+        .service
+        .register_physical_tag(NewPhysicalTag {
+            tag_type: request.tag_type,
+            external_identifier: request.external_identifier,
+            label: request.label,
+            bound_entity_type: request.bound_entity_type,
+            bound_entity_id: request.bound_entity_id,
+            notes: request.notes,
+        })
+        .await
+        .map_err(ApiError::from)?;
+
+    Ok((StatusCode::CREATED, Json(PhysicalTagResponse::from(tag))))
+}
+
+async fn get_tag_handler(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+) -> Result<Json<PhysicalTagResponse>, ApiError> {
+    let tag = state
+        .context
+        .service
+        .get_physical_tag(&id)
+        .await
+        .map_err(ApiError::from)?
+        .ok_or_else(|| {
+            ApiError::not_found(
+                "TAG_NOT_FOUND",
+                "Physical tag not found",
+                Some(json!({ "tag_id": id })),
+            )
+        })?;
+
+    Ok(Json(PhysicalTagResponse::from(tag)))
+}
+
+async fn resolve_tag_handler(
+    State(state): State<ApiState>,
+    Json(request): Json<ResolvePhysicalTagRequest>,
+) -> Result<Json<ResolvedPhysicalTagResponse>, ApiError> {
+    let tag_type = request.tag_type.clone();
+    let external_identifier = request.external_identifier.clone();
+    let resolved = state
+        .context
+        .service
+        .resolve_physical_tag(ResolvePhysicalTagInput {
+            tag_type,
+            external_identifier,
+        })
+        .await
+        .map_err(ApiError::from)?
+        .ok_or_else(|| {
+            ApiError::not_found(
+                "TAG_NOT_FOUND",
+                "Physical tag not found",
+                Some(json!({
+                    "tag_type": request.tag_type,
+                    "external_identifier": request.external_identifier
+                })),
+            )
+        })?;
+
+    Ok(Json(ResolvedPhysicalTagResponse::from(resolved)))
+}
+
 impl ItemResponse {
     fn from_domain(item: Item) -> Self {
         Self {
@@ -890,6 +1020,31 @@ impl From<TripItem> for TripItemResponse {
             planned_day: value.planned_day,
             status: value.status,
             notes: value.notes,
+        }
+    }
+}
+
+impl From<PhysicalTag> for PhysicalTagResponse {
+    fn from(value: PhysicalTag) -> Self {
+        Self {
+            id: value.id,
+            tag_type: value.tag_type,
+            external_identifier: value.external_identifier,
+            label: value.label,
+            bound_entity_type: value.bound_entity_type,
+            bound_entity_id: value.bound_entity_id,
+            notes: value.notes,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+impl From<ResolvedPhysicalTag> for ResolvedPhysicalTagResponse {
+    fn from(value: ResolvedPhysicalTag) -> Self {
+        Self {
+            tag: PhysicalTagResponse::from(value.tag),
+            entity_name: value.entity_name,
         }
     }
 }
@@ -1522,6 +1677,99 @@ mod tests {
             .await
             .expect("delete trip item response");
         assert_eq!(deleted.status(), StatusCode::NO_CONTENT);
+    }
+
+    #[tokio::test]
+    async fn physical_tag_routes_support_create_get_list_and_resolve() {
+        let sandbox = ApiSandbox::new();
+        let app = router(sandbox.context().await);
+
+        let created_item = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/items")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "name": "Corduroy Overshirt" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("create item response");
+        let item_body = to_json(created_item.into_body()).await;
+        let item_id = item_body["id"].as_str().unwrap().to_string();
+
+        let created_tag = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/tags")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "tag_type": "nfc",
+                            "external_identifier": "04-A2-88-FF",
+                            "label": "Overshirt NFC",
+                            "bound_entity_type": "item",
+                            "bound_entity_id": item_id
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("create tag response");
+        assert_eq!(created_tag.status(), StatusCode::CREATED);
+        let tag_body = to_json(created_tag.into_body()).await;
+        let tag_id = tag_body["id"].as_str().unwrap().to_string();
+
+        let listed_tags = app
+            .clone()
+            .oneshot(Request::builder().uri("/tags").body(Body::empty()).unwrap())
+            .await
+            .expect("list tags response");
+        assert_eq!(listed_tags.status(), StatusCode::OK);
+        let listed_tags_body = to_json(listed_tags.into_body()).await;
+        assert_eq!(
+            listed_tags_body["tags"][0]["external_identifier"],
+            "04-A2-88-FF"
+        );
+
+        let fetched_tag = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/tags/{tag_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("get tag response");
+        assert_eq!(fetched_tag.status(), StatusCode::OK);
+
+        let resolved_tag = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/tags/resolve")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "tag_type": "nfc",
+                            "external_identifier": "04-A2-88-FF"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("resolve tag response");
+        assert_eq!(resolved_tag.status(), StatusCode::OK);
+        let resolved_body = to_json(resolved_tag.into_body()).await;
+        assert_eq!(resolved_body["entity_name"], "Corduroy Overshirt");
     }
 
     #[tokio::test]

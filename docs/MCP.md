@@ -8,11 +8,17 @@ This avoids browser scraping and keeps the Rust backend as the source of truth.
 
 ## Current stage
 
-The MCP server is not implemented yet. It is tracked in `SEC-007`.
+The MCP server transport is not implemented yet. It is tracked in `SEC-007`.
 
 Target command:
 
 - `mywardrobehelper mcp serve`
+
+Current placeholder behavior:
+
+- the CLI command exists now
+- it resolves the configured data directory and verifies initialization
+- it does not start an MCP transport yet
 
 Target transport:
 

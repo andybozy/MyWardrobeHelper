@@ -18,3 +18,18 @@ Acceptance criteria met:
 - No Node/Django/React/Tailwind/HTMX stack was introduced.
 Notes:
 - CLI subcommands, database setup, API, MCP, and richer iOS functionality remain in TODO.md for later sections.
+
+## SEC-002 - CLI, config, data directory, and backend application lifecycle
+Completed: 2026-05-25
+Summary:
+- Replaced the bootstrap stub with a real CLI parser and clean user-facing error handling.
+- Added runtime config resolution for host, port, and external data directory paths.
+- Implemented `init`, `doctor`, and placeholder `serve`, `backup`, `export`, and `mcp serve` flows backed by a deterministic filesystem layout.
+- Documented runtime defaults, command behavior, and data layout in the repository docs.
+Acceptance criteria met:
+- The backend supports placeholder versions of `init`, `serve`, `doctor`, `backup`, `export`, and `mcp serve`.
+- The app resolves and creates the configured data directory layout.
+- `README.md` documents the runtime commands and data layout.
+- Errors are handled cleanly without panicking for normal user mistakes.
+Notes:
+- The database file created in this section is a placeholder path anchor; SQLite schema creation and migrations are deferred to `SEC-003`.

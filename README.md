@@ -22,12 +22,14 @@ Constraints for this repository:
 
 ## Current status
 
-The repository is in bootstrap state:
+The repository now has its first backend lifecycle layer:
 
 - Rust backend binary project exists and builds
 - Project guidance, backlog tracking, and core docs are initialized
-- iOS companion app exists as a native placeholder shell
-- CLI subcommands, database schema, HTTP server, JSON API, and MCP server are planned in `TODO.md`
+- CLI commands exist for `init`, `doctor`, `serve`, `backup`, `export`, and `mcp serve`
+- Data directory resolution and layout management are implemented
+- iOS companion app still exists as a native placeholder shell
+- Database schema, HTTP server, JSON API, and MCP transport remain planned in `TODO.md`
 
 ## Repository layout
 
@@ -42,23 +44,65 @@ openapi/              Generated or hand-authored API contract files
 tests/                Backend integration and smoke tests
 ```
 
-## Commands
+## Runtime commands
 
-Current bootstrap commands:
+Run the backend binary with:
 
-- `cargo run`
+- `cargo run -- help`
+- `cargo run -- init`
+- `cargo run -- doctor`
+- `cargo run -- serve`
+- `cargo run -- backup`
+- `cargo run -- export`
+- `cargo run -- mcp serve`
+
+Current command behavior:
+
+- `init` creates the external data directory layout and a placeholder `wardrobe.sqlite3` file
+- `doctor` checks the resolved config, filesystem layout, and writability
+- `serve` resolves bind URLs and data paths, but the actual HTTP server arrives in `SEC-005`
+- `backup` copies the current database file into `backups/`
+- `export` writes a placeholder JSON export describing the runtime layout
+- `mcp serve` reserves the embedded MCP command surface for `SEC-007`
+
+## Configuration
+
+Defaults:
+
+- host: `127.0.0.1`
+- port: `8787`
+- data directory: `.data`
+
+Overrides:
+
+- `--host HOST`
+- `--port PORT`
+- `--data-dir PATH`
+- `--lan` to use `0.0.0.0` as the default bind host when no explicit host is provided
+- `MYWARDROBEHELPER_HOST`
+- `MYWARDROBEHELPER_PORT`
+- `MYWARDROBEHELPER_DATA_DIR`
+
+## Data directory layout
+
+The backend keeps mutable state outside the binary:
+
+```text
+.data/
+  wardrobe.sqlite3
+  media/
+    items/
+  backups/
+  exports/
+```
+
+`SEC-002` creates the layout and placeholder database file. SQLite schema initialization and migrations land in `SEC-003`.
+
+## Checks
+
 - `cargo fmt --all`
 - `cargo clippy --all-targets --all-features -- -D warnings`
 - `cargo test --all-features`
-
-Planned backend command surface:
-
-- `mywardrobehelper serve`
-- `mywardrobehelper init`
-- `mywardrobehelper doctor`
-- `mywardrobehelper backup`
-- `mywardrobehelper export`
-- `mywardrobehelper mcp serve`
 
 ## Workflow
 

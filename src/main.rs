@@ -11,6 +11,6 @@ mod repositories;
 mod services;
 mod web;
 
-fn main() {
-    cli::run();
+fn main() -> std::process::ExitCode {
+    cli::run()
 }

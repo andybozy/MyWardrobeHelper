@@ -34,5 +34,7 @@ Manual setup remains the current path until then.
 ## Manual development workflow
 
 - Run backend checks with `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test --all-features`.
-- Run the bootstrap binary with `cargo run`.
+- Initialize local runtime state with `cargo run -- init`.
+- Validate the local runtime state with `cargo run -- doctor`.
+- Inspect the current command surface with `cargo run -- help`.
 - Review the next planned milestones in `TODO.md`.

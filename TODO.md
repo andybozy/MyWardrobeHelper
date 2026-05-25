@@ -1,20 +1,3 @@
-## SEC-002 - CLI, config, data directory, and backend application lifecycle
-Objective:
-- Implement the backend CLI entrypoint and basic subcommands.
-- Add configuration loading for host, port, and data directory.
-- Define the external data directory layout.
-- Implement init and doctor flows.
-- Document development defaults.
-
-Acceptance criteria:
-- The backend supports at least placeholder versions of: init, serve, doctor, backup, export, mcp serve.
-- The app can resolve and create the configured data directory.
-- The README documents the runtime commands and data layout.
-- Errors are handled cleanly and do not panic for normal user mistakes.
-
-Notes:
-- Prefer predictable local defaults suitable for development.
-
 ## SEC-003 - Database schema, migrations, and startup initialization
 Objective:
 - Add SQLite database initialization and migrations.

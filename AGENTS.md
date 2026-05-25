@@ -20,7 +20,9 @@ Build and test:
 - `cargo fmt --all`
 - `cargo clippy --all-targets --all-features -- -D warnings`
 - `cargo test --all-features`
-- `cargo run`
+- `cargo run -- help`
+- `cargo run -- init`
+- `cargo run -- doctor`
 
 Tracking and commits:
 - Read `TODO.md` and `IMPLEMENTED.md` before starting substantial work.

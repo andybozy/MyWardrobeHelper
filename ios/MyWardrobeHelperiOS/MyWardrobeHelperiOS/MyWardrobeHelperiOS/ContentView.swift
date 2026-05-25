@@ -11,7 +11,17 @@ struct ContentView: View {
     @ObservedObject var viewModel: ConnectionViewModel
 
     var body: some View {
-        ConnectionView(viewModel: viewModel)
+        TabView {
+            ConnectionView(viewModel: viewModel)
+                .tabItem {
+                    Label("Connection", systemImage: "network")
+                }
+
+            ItemsView(connectionViewModel: viewModel)
+                .tabItem {
+                    Label("Items", systemImage: "tshirt")
+                }
+        }
     }
 }
 

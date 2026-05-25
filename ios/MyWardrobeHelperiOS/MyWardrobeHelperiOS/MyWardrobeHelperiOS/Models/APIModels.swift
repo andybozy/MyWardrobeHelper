@@ -33,3 +33,60 @@ struct ServerInfoResponse: Decodable, Equatable {
         case databaseFile = "database_file"
     }
 }
+
+struct WardrobeItem: Codable, Equatable, Identifiable {
+    let id: String
+    let name: String
+    let category: String?
+    let subcategory: String?
+    let brand: String?
+    let size: String?
+    let colorPrimary: String?
+    let colorSecondary: String?
+    let material: String?
+    let season: String?
+    let formality: String?
+    let status: String?
+    let currentLocationID: String?
+    let notes: String?
+    let createdAt: String
+    let updatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case category
+        case subcategory
+        case brand
+        case size
+        case colorPrimary = "color_primary"
+        case colorSecondary = "color_secondary"
+        case material
+        case season
+        case formality
+        case status
+        case currentLocationID = "current_location_id"
+        case notes
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct CreateItemRequest: Encodable, Equatable {
+    let name: String
+    let category: String?
+    let brand: String?
+}
+
+struct ItemsListResponse: Decodable, Equatable {
+    let items: [WardrobeItem]
+}
+
+struct ServerErrorEnvelope: Decodable, Equatable {
+    let error: ServerErrorBody
+}
+
+struct ServerErrorBody: Decodable, Equatable {
+    let code: String
+    let message: String
+}

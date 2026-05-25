@@ -13,7 +13,13 @@ The repository contains a native SwiftUI companion app at:
 - the app can test connectivity against `/api/v1/health` and `/api/v1/server-info`
 - the backend is explicitly treated as the source of truth
 
-Item browsing, editing, and media upload on iOS remain the next sections.
+`SEC-012` is now in place:
+
+- the app can list items from the backend
+- the app can open an item detail screen backed by `/api/v1/items/:id`
+- the app can create a basic item record through `/api/v1/items`
+
+Media upload and richer editing remain the next sections.
 
 ## What the app does now
 
@@ -24,10 +30,14 @@ The current app focuses on local-network connection setup:
 - save the profile in `UserDefaults`
 - test the connection against the backend JSON API
 - show backend health counts and runtime details after a successful test
+- browse the backend item list
+- open item detail screens
+- create a basic item record from iOS
 
 The current Swift files are organized under:
 
 - `Features/Connection/`
+- `Features/Items/`
 - `Networking/`
 - `Models/`
 - `Services/`
@@ -84,9 +94,7 @@ Displayed information:
 
 ## Current limitations
 
-- no item list screen yet
-- no item detail screen yet
-- no create/edit item flow yet
+- no edit-item flow on iOS yet
 - no media upload yet
 - no tag-scanning integration yet
 - no Bonjour discovery yet
@@ -103,6 +111,6 @@ Cheap validation used here:
 
 ## Next steps
 
-- `SEC-012`: item browsing and basic item creation/editing on iOS
 - `SEC-013`: image/video upload from iPhone/iPad into MyWardrobeHelper
+- richer item editing on iOS beyond the current basic create flow
 - `SEC-015`: future tag-scanning groundwork

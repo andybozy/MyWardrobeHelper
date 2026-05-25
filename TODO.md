@@ -1,19 +1,3 @@
-## SEC-012 - iOS item browsing and editing basics
-Objective:
-- Implement basic iOS screens for browsing items and viewing item details.
-- Add basic create/edit flows where practical using the JSON API.
-- Establish reusable networking and error handling.
-
-Acceptance criteria:
-- The app can list items from the backend.
-- The app can show an item detail view.
-- The app can create at least a basic item record through the API.
-- Networking logic is centralized, not scattered in views.
-- Basic unit tests exist for API client decoding or view-model logic where practical.
-
-Notes:
-- Keep the UI clean and practical, not flashy.
-
 ## SEC-013 - iOS image/video upload to MyWardrobeHelper
 Objective:
 - Let the iOS app upload images and videos directly to an item in the backend.

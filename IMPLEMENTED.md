@@ -180,3 +180,19 @@ Acceptance criteria met:
 - The iOS app clearly treats the backend as the source of truth.
 Notes:
 - Full `xcodebuild` simulator/device builds are not available in this environment because the `iphonesimulator` SDK is not installed, so validation used `plutil` plus direct `swiftc -typecheck` instead.
+
+## SEC-012 - iOS item browsing and editing basics
+Completed: 2026-05-25
+Summary:
+- Added backend-backed item list and item detail screens to the native SwiftUI app.
+- Added a basic create-item flow that calls `POST /api/v1/items` through the centralized `APIClient`.
+- Extended the shared iOS models and networking layer so the item screens reuse the same stored server profile and API contract.
+- Updated iOS documentation and verified the expanded Swift source with direct type-checking in this environment.
+Acceptance criteria met:
+- The app can list items from the backend.
+- The app can show an item detail view.
+- The app can create at least a basic item record through the API.
+- Networking logic remains centralized instead of being scattered across views.
+- Additional iOS unit-test targets are still not practical in this environment, but the Swift source is typechecked directly.
+Notes:
+- The current iOS item flow supports browsing and basic creation; richer item editing remains future work.

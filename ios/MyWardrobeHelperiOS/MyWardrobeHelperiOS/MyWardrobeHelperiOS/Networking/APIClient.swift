@@ -4,7 +4,9 @@ enum APIClientError: LocalizedError {
     case invalidBaseURL
     case invalidResponse
     case badStatusCode(Int)
+    case serverMessage(String)
     case decoding(Error)
+    case encoding(Error)
     case transport(Error)
 
     var errorDescription: String? {
@@ -15,8 +17,12 @@ enum APIClientError: LocalizedError {
             return "The backend returned an unexpected response."
         case let .badStatusCode(code):
             return "The backend returned HTTP \(code)."
+        case let .serverMessage(message):
+            return message
         case let .decoding(error):
             return "The backend response could not be decoded: \(error.localizedDescription)"
+        case let .encoding(error):
+            return "The request body could not be encoded: \(error.localizedDescription)"
         case let .transport(error):
             return error.localizedDescription
         }
@@ -56,8 +62,39 @@ struct APIClient {
         try await sendRequest(pathSegments: ["api", "v1", "server-info"], baseURL: baseURL)
     }
 
+    func fetchItems(baseURL: URL) async throws -> [WardrobeItem] {
+        let response: ItemsListResponse = try await sendRequest(
+            pathSegments: ["api", "v1", "items"],
+            baseURL: baseURL
+        )
+        return response.items
+    }
+
+    func fetchItem(id: String, baseURL: URL) async throws -> WardrobeItem {
+        try await sendRequest(pathSegments: ["api", "v1", "items", id], baseURL: baseURL)
+    }
+
+    func createItem(_ requestBody: CreateItemRequest, baseURL: URL) async throws -> WardrobeItem {
+        let bodyData: Data
+        do {
+            bodyData = try JSONEncoder().encode(requestBody)
+        } catch {
+            throw APIClientError.encoding(error)
+        }
+
+        let item: WardrobeItem = try await sendRequest(
+            pathSegments: ["api", "v1", "items"],
+            method: "POST",
+            bodyData: bodyData,
+            baseURL: baseURL
+        )
+        return item
+    }
+
     private func sendRequest<Response: Decodable>(
         pathSegments: [String],
+        method: String = "GET",
+        bodyData: Data? = nil,
         baseURL: URL
     ) async throws -> Response {
         var url = baseURL
@@ -65,7 +102,13 @@ struct APIClient {
             url.appendPathComponent(segment)
         }
 
-        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+        request.httpMethod = method
+
+        if let bodyData {
+            request.httpBody = bodyData
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
 
         do {
             let (data, response) = try await session.data(for: request)
@@ -74,6 +117,11 @@ struct APIClient {
             }
 
             guard 200 ..< 300 ~= httpResponse.statusCode else {
+                if
+                    let serverError = try? JSONDecoder().decode(ServerErrorEnvelope.self, from: data)
+                {
+                    throw APIClientError.serverMessage(serverError.error.message)
+                }
                 throw APIClientError.badStatusCode(httpResponse.statusCode)
             }
 

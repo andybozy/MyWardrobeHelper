@@ -8,26 +8,15 @@
 import SwiftUI
 
 struct ContentView: View {
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Status") {
-                    Label("Native SwiftUI companion app", systemImage: "iphone")
-                    Label("Backend remains the source of truth", systemImage: "externaldrive")
-                    Label("Local-network API connection planned", systemImage: "network")
-                }
+    @ObservedObject var viewModel: ConnectionViewModel
 
-                Section("Next milestones") {
-                    Text("SEC-011: server profile and LAN connectivity")
-                    Text("SEC-012: item browsing and editing")
-                    Text("SEC-013: image and video upload")
-                }
-            }
-            .navigationTitle("MyWardrobeHelper")
-        }
+    var body: some View {
+        ConnectionView(viewModel: viewModel)
     }
 }
 
-#Preview {
-    ContentView()
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView(viewModel: ConnectionViewModel())
+    }
 }

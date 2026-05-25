@@ -164,3 +164,19 @@ Acceptance criteria met:
 - Tests exist for trip and trip-item persistence.
 Notes:
 - Packing-list updates remain intentionally simple for now: planned day, status, and notes are editable per trip item.
+
+## SEC-011 - Native iOS app foundation and LAN server connection
+Completed: 2026-05-25
+Summary:
+- Added a real SwiftUI iOS foundation with a stored backend server profile and a practical connection settings screen.
+- Added centralized iOS networking and profile storage layers for `/api/v1/health` and `/api/v1/server-info`.
+- Added local-network and local HTTP transport plist settings in the Xcode project.
+- Updated iOS setup documentation and verified the Swift source with direct type-checking in this environment.
+Acceptance criteria met:
+- The repository contains a native iOS project.
+- The app can store a configurable backend base URL.
+- The app can call `/api/v1/health` and `/api/v1/server-info` and display success/failure.
+- `docs/IOS.md` explains how to run the backend and connect the iOS app over LAN.
+- The iOS app clearly treats the backend as the source of truth.
+Notes:
+- Full `xcodebuild` simulator/device builds are not available in this environment because the `iphonesimulator` SDK is not installed, so validation used `plutil` plus direct `swiftc -typecheck` instead.

@@ -1,20 +1,3 @@
-## SEC-011 - Native iOS app foundation and LAN server connection
-Objective:
-- Create the native iOS companion app structure.
-- Implement server profile/base URL configuration.
-- Implement connection testing against the backend API on the local network.
-- Document iOS setup and local device testing.
-
-Acceptance criteria:
-- The repository contains a buildable native iOS project or workspace.
-- The app can store a configurable backend base URL.
-- The app can call /api/v1/health or /api/v1/server-info and display success/failure.
-- docs/IOS.md explains how to run the backend and connect the iOS app over LAN.
-- The iOS app clearly treats the backend as the source of truth.
-
-Notes:
-- Manual URL entry is enough initially. Bonjour discovery can wait.
-
 ## SEC-012 - iOS item browsing and editing basics
 Objective:
 - Implement basic iOS screens for browsing items and viewing item details.

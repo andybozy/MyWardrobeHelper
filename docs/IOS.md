@@ -2,36 +2,107 @@
 
 ## Current stage
 
-The repository contains a native SwiftUI app placeholder at:
+The repository contains a native SwiftUI companion app at:
 
 - `ios/MyWardrobeHelperiOS/MyWardrobeHelperiOS/MyWardrobeHelperiOS.xcodeproj`
 
-The iOS product direction is active, but the networking and data flows are not implemented yet. Initial functional delivery is tracked in `SEC-011`, `SEC-012`, and `SEC-013`.
+`SEC-011` is now in place:
 
-## Product direction
+- a native SwiftUI project exists
+- the app stores a backend server profile locally
+- the app can test connectivity against `/api/v1/health` and `/api/v1/server-info`
+- the backend is explicitly treated as the source of truth
 
-The iOS app will:
+Item browsing, editing, and media upload on iOS remain the next sections.
 
-- connect to the Rust backend over the local network
-- use the documented JSON API as its only backend contract
-- treat the backend as the source of truth
-- support item browsing, practical editing, and image/video upload
-- stay ready for future physical tag reading
+## What the app does now
 
-## Local network model
+The current app focuses on local-network connection setup:
 
-The MVP app will use a user-configurable base URL such as `http://192.168.1.10:8787`.
+- edit a stored profile name
+- edit a stored backend base URL
+- save the profile in `UserDefaults`
+- test the connection against the backend JSON API
+- show backend health counts and runtime details after a successful test
 
-The app must not assume `localhost` when running on a physical device.
+The current Swift files are organized under:
+
+- `Features/Connection/`
+- `Networking/`
+- `Models/`
+- `Services/`
+
+## Build and run
+
+1. Open `ios/MyWardrobeHelperiOS/MyWardrobeHelperiOS/MyWardrobeHelperiOS.xcodeproj` in Xcode.
+2. Choose an iPhone simulator or a physical iPhone/iPad.
+3. Build and run the app.
+
+Backend startup for local testing:
+
+```bash
+cargo run -- init
+cargo run -- serve --lan
+```
+
+If you only need same-Mac simulator testing, `cargo run -- serve` is enough.
+
+## Base URL configuration
+
+Recommended examples:
+
+- Simulator on the same Mac as the backend:
+  `http://127.0.0.1:8787`
+- Physical iPhone/iPad on the same LAN:
+  `http://192.168.x.x:8787`
+
+The app does not assume `localhost` on device. Manual URL entry is the current expected path.
+
+## Local network and transport settings
+
+The Xcode project now includes:
+
+- `NSLocalNetworkUsageDescription`
+- `NSAppTransportSecurity > NSAllowsLocalNetworking = YES`
+
+That keeps the MVP focused on trusted local-network HTTP connections without introducing a heavier auth or cloud setup yet.
+
+## Connection test behavior
+
+The app runs:
+
+- `GET /api/v1/health`
+- `GET /api/v1/server-info`
+
+Displayed information:
+
+- health status
+- item/location/trip counts
+- backend version
+- bind URL, local URL, and optional LAN URL
+- backend data directory path
 
 ## Current limitations
 
-- no server profile storage yet
-- no API client yet
-- no LAN connection testing yet
+- no item list screen yet
+- no item detail screen yet
+- no create/edit item flow yet
 - no media upload yet
-- no tag-reading integration yet
+- no tag-scanning integration yet
+- no Bonjour discovery yet
 
-## Build note
+## Verification note
 
-Open the Xcode project above and run the placeholder app locally. Device and simulator network flows will be documented once `SEC-011` lands.
+In this environment, full `xcodebuild` project builds are not available because full Xcode is not selected on the machine. The project structure and plist/project files were kept consistent, and the Xcode project remains the native source of truth for the app.
+
+Cheap validation used here:
+
+- project file updates kept within the existing filesystem-synced Xcode project layout
+- plist-related keys updated directly in `project.pbxproj`
+- Swift source added under the synced project root so Xcode can discover it without manual file references
+
+## Next steps
+
+- `SEC-012`: item browsing and basic item creation/editing on iOS
+- `SEC-013`: image/video upload from iPhone/iPad into MyWardrobeHelper
+- `SEC-015`: future tag-scanning groundwork

@@ -250,6 +250,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "MyWardrobeHelper connects to your local wardrobe backend on the same network.";
 				INFOPLIST_KEY_NFCReaderUsageDescription = "MyWardrobeHelper may read NFC tags attached to wardrobe items or storage locations.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "MyWardrobeHelper imports item photos and videos from your library.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -294,6 +296,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "MyWardrobeHelper connects to your local wardrobe backend on the same network.";
 				INFOPLIST_KEY_NFCReaderUsageDescription = "MyWardrobeHelper may read NFC tags attached to wardrobe items or storage locations.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "MyWardrobeHelper imports item photos and videos from your library.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;

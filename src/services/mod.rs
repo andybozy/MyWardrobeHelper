@@ -1,7 +1,10 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::domain::{HealthSnapshot, Item, Location, NewItem, NewLocation, NewTrip, Trip};
+use crate::domain::{
+    HealthSnapshot, Item, Location, MoveItemInput, MoveItemResult, Movement, NewItem, NewLocation,
+    NewTrip, NewTripItem, Trip, TripItem,
+};
 use crate::error::{AppError, AppResult};
 use crate::repositories::SqliteWardrobeRepository;
 
@@ -50,6 +53,34 @@ impl WardrobeService {
         self.repository.get_item(item_id).await
     }
 
+    pub async fn move_item(
+        &self,
+        item_id: &str,
+        input: MoveItemInput,
+    ) -> AppResult<MoveItemResult> {
+        let item_id = require_identifier("item id", item_id)?;
+        let normalized = MoveItemInput {
+            to_location_id: normalize_identifier_optional("location id", input.to_location_id)?,
+            reason: normalize_optional(input.reason),
+            notes: normalize_optional(input.notes),
+        };
+
+        self.repository
+            .move_item(&generate_id("movement"), item_id, &normalized)
+            .await
+    }
+
+    pub async fn get_item_movements(&self, item_id: &str) -> AppResult<Vec<Movement>> {
+        let item_id = require_identifier("item id", item_id)?;
+        if self.repository.get_item(item_id).await?.is_none() {
+            return Err(AppError::invalid_argument(format!(
+                "item `{item_id}` does not exist"
+            )));
+        }
+
+        self.repository.list_item_movements(item_id).await
+    }
+
     pub async fn create_location(&self, input: NewLocation) -> AppResult<Location> {
         let normalized = NewLocation {
             name: require_name("location name", input.name)?,
@@ -96,6 +127,44 @@ impl WardrobeService {
         let trip_id = require_identifier("trip id", id)?;
         self.repository.get_trip(trip_id).await
     }
+
+    pub async fn add_trip_item(&self, trip_id: &str, input: NewTripItem) -> AppResult<TripItem> {
+        let trip_id = require_identifier("trip id", trip_id)?;
+        if self.repository.get_trip(trip_id).await?.is_none() {
+            return Err(AppError::invalid_argument(format!(
+                "trip `{trip_id}` does not exist"
+            )));
+        }
+
+        let item_id = require_identifier("item id", &input.item_id)?.to_string();
+        if self.repository.get_item(&item_id).await?.is_none() {
+            return Err(AppError::invalid_argument(format!(
+                "item `{item_id}` does not exist"
+            )));
+        }
+
+        let normalized = NewTripItem {
+            item_id,
+            planned_day: normalize_optional(input.planned_day),
+            status: normalize_optional(input.status),
+            notes: normalize_optional(input.notes),
+        };
+
+        self.repository
+            .add_trip_item(&generate_id("trip-item"), trip_id, &normalized)
+            .await
+    }
+
+    pub async fn list_trip_items(&self, trip_id: &str) -> AppResult<Vec<TripItem>> {
+        let trip_id = require_identifier("trip id", trip_id)?;
+        if self.repository.get_trip(trip_id).await?.is_none() {
+            return Err(AppError::invalid_argument(format!(
+                "trip `{trip_id}` does not exist"
+            )));
+        }
+
+        self.repository.list_trip_items(trip_id).await
+    }
 }
 
 fn require_name(field: &str, value: String) -> AppResult<String> {
@@ -131,6 +200,13 @@ fn normalize_optional(value: Option<String>) -> Option<String> {
     })
 }
 
+fn normalize_identifier_optional(field: &str, value: Option<String>) -> AppResult<Option<String>> {
+    match value {
+        Some(inner) => Ok(Some(require_identifier(field, &inner)?.to_string())),
+        None => Ok(None),
+    }
+}
+
 fn generate_id(prefix: &str) -> String {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -152,7 +228,7 @@ mod tests {
 
     use crate::app::{init_app, open_context};
     use crate::config::{AppConfig, DEFAULT_HOST, DEFAULT_PORT};
-    use crate::domain::{NewItem, NewLocation, NewTrip};
+    use crate::domain::{MoveItemInput, NewItem, NewLocation, NewTrip, NewTripItem};
 
     use super::*;
 
@@ -286,6 +362,122 @@ mod tests {
             .expect_err("empty item name should fail");
 
         assert!(matches!(error, AppError::InvalidArgument(_)));
+    }
+
+    #[tokio::test]
+    async fn move_item_records_movement_and_updates_location() {
+        let sandbox = ServiceSandbox::new();
+        let service = sandbox.service().await;
+
+        let location = service
+            .create_location(NewLocation {
+                name: "Guest Room Closet".to_string(),
+                location_type: "Closet".to_string(),
+                parent_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create location");
+        let item = service
+            .create_item(NewItem {
+                name: "Rain Jacket".to_string(),
+                category: None,
+                subcategory: None,
+                brand: None,
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: None,
+                formality: None,
+                status: None,
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create item");
+
+        let result = service
+            .move_item(
+                &item.id,
+                MoveItemInput {
+                    to_location_id: Some(location.id.clone()),
+                    reason: Some("seasonal rotation".to_string()),
+                    notes: None,
+                },
+            )
+            .await
+            .expect("move item");
+
+        assert_eq!(result.item.current_location_id, Some(location.id.clone()));
+        assert_eq!(result.movement.to_location_id, Some(location.id));
+        assert_eq!(
+            service
+                .get_item_movements(&item.id)
+                .await
+                .expect("movements")
+                .len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn add_and_list_trip_items() {
+        let sandbox = ServiceSandbox::new();
+        let service = sandbox.service().await;
+
+        let item = service
+            .create_item(NewItem {
+                name: "Merino Tee".to_string(),
+                category: None,
+                subcategory: None,
+                brand: None,
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: None,
+                formality: None,
+                status: None,
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create item");
+        let trip = service
+            .create_trip(NewTrip {
+                name: "Turin Overnight".to_string(),
+                destination: None,
+                start_date: None,
+                end_date: None,
+                trip_type: None,
+                luggage_type: None,
+                notes: None,
+            })
+            .await
+            .expect("create trip");
+
+        let trip_item = service
+            .add_trip_item(
+                &trip.id,
+                NewTripItem {
+                    item_id: item.id.clone(),
+                    planned_day: Some("day-1".to_string()),
+                    status: Some("planned".to_string()),
+                    notes: None,
+                },
+            )
+            .await
+            .expect("add trip item");
+
+        let trip_items = service
+            .list_trip_items(&trip.id)
+            .await
+            .expect("list trip items");
+
+        assert_eq!(trip_items.len(), 1);
+        assert_eq!(trip_items[0].id, trip_item.id);
+        assert_eq!(trip_items[0].item_name.as_deref(), Some("Merino Tee"));
     }
 
     struct ServiceSandbox {

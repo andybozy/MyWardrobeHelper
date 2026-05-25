@@ -1,7 +1,6 @@
-# Copy this file to `.codex/config.toml` after SEC-007 is implemented.
-# The command below is the intended local MCP setup for trusted checkouts.
+# Copy this file to `.codex/config.toml` in a trusted checkout.
 
-# [mcp_servers.mywardrobehelper]
-# command = "cargo"
-# args = ["run", "--", "mcp", "serve", "--data-dir", ".data"]
-# cwd = "."
+[mcp_servers.mywardrobehelper]
+command = "cargo"
+args = ["run", "--quiet", "--", "mcp", "serve", "--data-dir", ".data"]
+cwd = "."

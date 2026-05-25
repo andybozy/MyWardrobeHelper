@@ -24,6 +24,7 @@ Build and test:
 - `cargo run -- init`
 - `cargo run -- doctor`
 - `cargo run -- serve`
+- `cargo run -- mcp serve`
 
 Tracking and commits:
 - Read `TODO.md` and `IMPLEMENTED.md` before starting substantial work.

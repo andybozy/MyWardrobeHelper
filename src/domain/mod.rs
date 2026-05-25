@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Item {
     pub id: String,
     pub name: String,
@@ -18,7 +20,7 @@ pub struct Item {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewItem {
     pub name: String,
     pub category: Option<String>,
@@ -35,7 +37,7 @@ pub struct NewItem {
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Location {
     pub id: String,
     pub name: String,
@@ -46,7 +48,7 @@ pub struct Location {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewLocation {
     pub name: String,
     pub location_type: String,
@@ -54,7 +56,7 @@ pub struct NewLocation {
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Trip {
     pub id: String,
     pub name: String,
@@ -68,7 +70,7 @@ pub struct Trip {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewTrip {
     pub name: String,
     pub destination: Option<String>,
@@ -79,7 +81,50 @@ pub struct NewTrip {
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Movement {
+    pub id: String,
+    pub item_id: String,
+    pub from_location_id: Option<String>,
+    pub to_location_id: Option<String>,
+    pub reason: Option<String>,
+    pub notes: Option<String>,
+    pub moved_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MoveItemInput {
+    pub to_location_id: Option<String>,
+    pub reason: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MoveItemResult {
+    pub item: Item,
+    pub movement: Movement,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TripItem {
+    pub id: String,
+    pub trip_id: String,
+    pub item_id: String,
+    pub item_name: Option<String>,
+    pub planned_day: Option<String>,
+    pub status: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NewTripItem {
+    pub item_id: String,
+    pub planned_day: Option<String>,
+    pub status: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HealthSnapshot {
     pub item_count: i64,
     pub location_count: i64,

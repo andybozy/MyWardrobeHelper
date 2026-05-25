@@ -5,6 +5,7 @@ use std::process::ExitCode;
 use crate::app;
 use crate::config::{AppConfig, ConfigOverrides, EnvConfig};
 use crate::error::{AppError, AppResult};
+use crate::mcp;
 use crate::web;
 
 const HELP_TEXT: &str = "\
@@ -19,7 +20,7 @@ Commands:
   serve        Start the local HTTP server for the browser UI.
   backup       Copy the current database file into the backups directory.
   export       Write a placeholder JSON export into the exports directory.
-  mcp serve    Reserve the embedded MCP command surface for SEC-007.
+  mcp serve    Start the embedded MCP server over STDIO.
   help         Show this message.
 
 Flags:
@@ -253,11 +254,8 @@ async fn dispatch(cli: Cli) -> AppResult<()> {
             Ok(())
         }
         Command::McpServe => {
-            let plan = app::plan_mcp(&cli.config).await?;
-            println!("Embedded MCP server is reserved for SEC-007.");
-            println!("Resolved data directory: {}", plan.layout.root.display());
-            println!("Use `cargo run -- doctor` until the MCP transport is implemented.");
-            Ok(())
+            let context = app::open_context(cli.config.clone()).await?;
+            mcp::serve(context).await
         }
     }
 }

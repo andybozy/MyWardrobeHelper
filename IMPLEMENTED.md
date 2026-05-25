@@ -97,3 +97,20 @@ Acceptance criteria met:
 - `openapi/openapi.json` exists and reflects the current API surface.
 Notes:
 - The initial API focuses on health plus item/location basics; trip, movement, media, and update routes remain future sections.
+
+## SEC-007 - Embedded MCP server and Codex project integration
+Completed: 2026-05-25
+Summary:
+- Added a real embedded MCP server on `mcp serve` using STDIO and newline-delimited JSON-RPC.
+- Implemented MCP initialization, `tools/list`, `tools/call`, and a high-value wardrobe tool surface backed by the shared service layer.
+- Extended the shared backend core with movement and trip-item operations needed by the MCP tools.
+- Updated MCP and Codex setup docs plus the project-local config example for trusted checkouts.
+Acceptance criteria met:
+- The backend supports `mcp serve`.
+- The MCP tool layer is implemented and routed through the service layer.
+- `docs/MCP.md` and `docs/CODEX_SETUP.md` clearly explain setup and usage.
+- A project-local `.codex/config.toml.example` exists and is current.
+- `AGENTS.md` includes the rule directing Codex to use the local wardrobe MCP server for live wardrobe tasks.
+- The tool surface includes health, list items, get item, list locations, move item, list trips, and list trip items.
+Notes:
+- The initial MCP server is STDIO-only and focuses on tools; prompts and resources remain out of scope for now.

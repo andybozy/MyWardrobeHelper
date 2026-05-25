@@ -48,11 +48,6 @@ pub struct ServePlan {
     pub lan_url: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct McpPlan {
-    pub layout: AppLayout,
-}
-
 #[derive(Debug, Clone)]
 pub struct AppContext {
     pub config: AppConfig,
@@ -388,14 +383,6 @@ pub async fn export_layout(config: &AppConfig) -> AppResult<ExportReport> {
     )))?;
 
     Ok(ExportReport { export_file })
-}
-
-pub async fn plan_mcp(config: &AppConfig) -> AppResult<McpPlan> {
-    let layout = AppLayout::from_data_dir(config.data_dir.clone());
-    layout.require_initialized()?;
-    ensure_schema_ready(&layout).await?;
-
-    Ok(McpPlan { layout })
 }
 
 fn build_export_payload(layout: &AppLayout) -> String {

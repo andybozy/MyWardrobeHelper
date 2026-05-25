@@ -1,21 +1,3 @@
-## SEC-007 - Embedded MCP server and Codex project integration
-Objective:
-- Implement the embedded MCP server subcommand.
-- Expose an initial useful tool set backed by the shared service layer.
-- Add Codex-facing setup documentation and project config examples or config.
-- Make the repository naturally usable by Codex through MCP.
-
-Acceptance criteria:
-- The backend supports mcp serve.
-- The MCP tool layer is implemented and routed through the service layer.
-- docs/MCP.md and docs/CODEX_SETUP.md clearly explain setup and usage.
-- A project-local .codex/config.toml or .codex/config.toml.example exists.
-- AGENTS.md includes a rule directing Codex to use the local wardrobe MCP server for live wardrobe tasks.
-- The tool surface includes at least health, list items, get item, list locations, move item, list trips, and list trip items.
-
-Notes:
-- Prefer STDIO first. Keep the initial tool set high-value.
-
 ## SEC-008 - Item CRUD and backend media storage
 Objective:
 - Implement create, list, view, and edit flows for items.

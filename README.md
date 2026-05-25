@@ -32,8 +32,9 @@ The repository now has its first backend lifecycle and browser UI layers:
 - Shared domain, repository, service, and app-context layers exist for health, item, location, and trip basics
 - A server-rendered browser UI now ships with a dashboard and status page
 - A versioned JSON API foundation now ships under `/api/v1`
+- An embedded STDIO MCP server now ships for live wardrobe tool use
 - iOS companion app still exists as a native placeholder shell
-- MCP transport and the remaining API surface remain planned in `TODO.md`
+- The remaining API surface and iOS client work remain planned in `TODO.md`
 
 ## Repository layout
 
@@ -67,7 +68,7 @@ Current command behavior:
 - `serve` starts the local HTTP server, serves the browser UI and `/api/v1`, and prints the local and LAN URLs when relevant
 - `backup` copies the current database file into `backups/`
 - `export` writes a placeholder JSON export describing the runtime layout
-- `mcp serve` reserves the embedded MCP command surface for `SEC-007`
+- `mcp serve` starts the embedded MCP server over STDIO
 
 ## Configuration
 

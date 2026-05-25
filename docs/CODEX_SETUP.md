@@ -17,19 +17,23 @@ Codex work should follow the section workflow:
 
 ## Local wardrobe MCP server
 
-The project will expose an embedded MCP server from the Rust backend as:
+The project exposes an embedded MCP server from the Rust backend as:
 
 - `mywardrobehelper mcp serve`
 
-That command is not implemented yet. It is tracked in `SEC-007`.
-
-When `SEC-007` lands, Codex should use the local wardrobe MCP server for live wardrobe state and actions instead of inferring from HTML or source files.
+Codex should use the local wardrobe MCP server for live wardrobe state and actions instead of inferring from HTML or source files.
 
 ## Project-local Codex config
 
-A future-ready example is committed at `.codex/config.toml.example`. Copy it to `.codex/config.toml` once the backend exposes `mcp serve`.
+A repository-scoped example is committed at `.codex/config.toml.example`.
 
-Manual setup remains the current path until then.
+Typical setup:
+
+1. Copy `.codex/config.toml.example` to `.codex/config.toml`
+2. Run `cargo run -- init`
+3. Let Codex start `cargo run --quiet -- mcp serve --data-dir .data`
+
+If your data directory is not `.data`, edit the `args` line in `.codex/config.toml`.
 
 ## Manual development workflow
 
@@ -37,6 +41,7 @@ Manual setup remains the current path until then.
 - Initialize local runtime state and apply SQLite migrations with `cargo run -- init`.
 - Validate the local runtime state with `cargo run -- doctor`.
 - Inspect the local browser UI with `cargo run -- serve`.
+- Smoke the MCP transport with `cargo run -- mcp serve`.
 - Inspect the current command surface with `cargo run -- help`.
 - Re-run `cargo run -- init` after pulling schema changes that add new migrations.
 - Review the next planned milestones in `TODO.md`.

@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 
+use sqlx::QueryBuilder;
 use sqlx::{Connection, Row, SqliteConnection};
 
 use crate::db;
 use crate::domain::{
-    HealthSnapshot, Item, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement, NewItem,
-    NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag,
+    HealthSnapshot, Item, ItemFilter, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement,
+    NewItem, NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag,
     ResolvePhysicalTagInput, ResolvedPhysicalTag, Trip, TripItem, UpdateItemInput, UpdateTripInput,
     UpdateTripItemInput,
 };
@@ -53,17 +54,71 @@ impl SqliteWardrobeRepository {
     }
 
     pub async fn list_items(&self) -> AppResult<Vec<Item>> {
+        self.list_items_filtered(&ItemFilter::default()).await
+    }
+
+    pub async fn list_items_filtered(&self, filter: &ItemFilter) -> AppResult<Vec<Item>> {
         let mut connection = self.connect().await?;
-        let rows = sqlx::query(
+        let mut query_builder = QueryBuilder::new(
             "SELECT
                 id, name, category, subcategory, brand, size, color_primary, color_secondary,
                 material, season, formality, status, current_location_id, notes, created_at, updated_at
-             FROM items
-             ORDER BY created_at, id",
-        )
-        .fetch_all(&mut connection)
-        .await
-        .map_err(|error| AppError::database("list items", error))?;
+             FROM items",
+        );
+
+        let mut has_clause = false;
+        if let Some(query) = non_empty(filter.query.as_deref()) {
+            push_where(&mut query_builder, &mut has_clause);
+            let like_query = format!("%{}%", query.to_lowercase());
+            query_builder.push("(lower(name) LIKE ");
+            query_builder.push_bind(like_query.clone());
+            query_builder.push(" OR lower(category) LIKE ");
+            query_builder.push_bind(like_query.clone());
+            query_builder.push(" OR lower(brand) LIKE ");
+            query_builder.push_bind(like_query.clone());
+            query_builder.push(" OR lower(notes) LIKE ");
+            query_builder.push_bind(like_query);
+            query_builder.push(")");
+        }
+
+        push_optional_eq(
+            &mut query_builder,
+            &mut has_clause,
+            "category",
+            filter.category.as_deref(),
+        );
+        push_optional_eq(
+            &mut query_builder,
+            &mut has_clause,
+            "brand",
+            filter.brand.as_deref(),
+        );
+        push_optional_eq(
+            &mut query_builder,
+            &mut has_clause,
+            "season",
+            filter.season.as_deref(),
+        );
+        push_optional_eq(
+            &mut query_builder,
+            &mut has_clause,
+            "current_location_id",
+            filter.current_location_id.as_deref(),
+        );
+        push_optional_eq(
+            &mut query_builder,
+            &mut has_clause,
+            "status",
+            filter.status.as_deref(),
+        );
+
+        query_builder.push(" ORDER BY created_at, id");
+
+        let rows = query_builder
+            .build()
+            .fetch_all(&mut connection)
+            .await
+            .map_err(|error| AppError::database("list items", error))?;
 
         rows.into_iter()
             .map(map_item_row)
@@ -932,6 +987,33 @@ fn map_physical_tag_row(row: sqlx::sqlite::SqliteRow) -> AppResult<PhysicalTag> 
             .try_get("updated_at")
             .map_err(|error| AppError::database("read physical_tag.updated_at", error))?,
     })
+}
+
+fn push_where(query_builder: &mut QueryBuilder<'_, sqlx::Sqlite>, has_clause: &mut bool) {
+    if *has_clause {
+        query_builder.push(" AND ");
+    } else {
+        query_builder.push(" WHERE ");
+        *has_clause = true;
+    }
+}
+
+fn push_optional_eq(
+    query_builder: &mut QueryBuilder<'_, sqlx::Sqlite>,
+    has_clause: &mut bool,
+    column: &str,
+    value: Option<&str>,
+) {
+    if let Some(value) = non_empty(value) {
+        push_where(query_builder, has_clause);
+        query_builder.push(column);
+        query_builder.push(" = ");
+        query_builder.push_bind(value.to_string());
+    }
+}
+
+fn non_empty(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
 }
 
 async fn count_rows(connection: &mut SqliteConnection, table_name: &str) -> AppResult<i64> {

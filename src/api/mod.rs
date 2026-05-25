@@ -1,4 +1,4 @@
-use axum::extract::{Multipart, Path, State};
+use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -8,8 +8,8 @@ use serde_json::{Value, json};
 
 use crate::app::AppContext;
 use crate::domain::{
-    Item, ItemMedia, Location, MoveItemInput, Movement, NewItem, NewItemMediaInput, NewLocation,
-    NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag, ResolvePhysicalTagInput,
+    Item, ItemFilter, ItemMedia, Location, MoveItemInput, Movement, NewItem, NewItemMediaInput,
+    NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag, ResolvePhysicalTagInput,
     ResolvedPhysicalTag, Trip, TripItem, UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
 };
 use crate::error::AppError;
@@ -193,6 +193,16 @@ struct CreateItemRequest {
     notes: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Default)]
+struct ItemFilterQuery {
+    q: Option<String>,
+    category: Option<String>,
+    brand: Option<String>,
+    season: Option<String>,
+    current_location_id: Option<String>,
+    status: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct CreateLocationRequest {
     name: String,
@@ -368,12 +378,20 @@ async fn server_info_handler(
 }
 
 async fn list_items_handler(
+    Query(query): Query<ItemFilterQuery>,
     State(state): State<ApiState>,
 ) -> Result<Json<ItemsListResponse>, ApiError> {
     let items = state
         .context
         .service
-        .list_items()
+        .list_items_filtered(ItemFilter {
+            query: query.q,
+            category: query.category,
+            brand: query.brand,
+            season: query.season,
+            current_location_id: query.current_location_id,
+            status: query.status,
+        })
         .await
         .map_err(ApiError::from)?;
 
@@ -1276,6 +1294,57 @@ mod tests {
         assert_eq!(get_response.status(), StatusCode::OK);
         let get_body = to_json(get_response.into_body()).await;
         assert_eq!(get_body["id"], item_id);
+    }
+
+    #[tokio::test]
+    async fn item_list_supports_filter_query_params() {
+        let sandbox = ApiSandbox::new();
+        let app = router(sandbox.context().await);
+
+        for body in [
+            json!({
+                "name": "Summer Blazer",
+                "category": "Outerwear",
+                "brand": "Example",
+                "season": "Summer",
+                "status": "ready"
+            }),
+            json!({
+                "name": "Winter Coat",
+                "category": "Outerwear",
+                "brand": "Archive",
+                "season": "Winter",
+                "status": "storage"
+            }),
+        ] {
+            let _ = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/items")
+                        .header("content-type", "application/json")
+                        .body(Body::from(body.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .expect("create item response");
+        }
+
+        let filtered = app
+            .oneshot(
+                Request::builder()
+                    .uri("/items?brand=Example&season=Summer&status=ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("filtered list response");
+
+        assert_eq!(filtered.status(), StatusCode::OK);
+        let body = to_json(filtered.into_body()).await;
+        assert_eq!(body["items"].as_array().unwrap().len(), 1);
+        assert_eq!(body["items"][0]["name"], "Summer Blazer");
     }
 
     #[tokio::test]

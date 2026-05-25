@@ -244,3 +244,19 @@ Acceptance criteria met:
 - The groundwork is isolated cleanly enough to evolve without a rewrite.
 Notes:
 - The current iOS tag flow resolves tags manually against the backend; real NFC/QR scanning remains future work behind the same abstraction.
+
+## SEC-016 - Search, filters, and practical dashboard views
+Completed: 2026-05-26
+Summary:
+- Added shared item filtering support in the backend service and repository layers.
+- Added item filter controls in the server-rendered item list and dashboard summary panels for category and status counts.
+- Added item query-parameter filtering to the JSON API and optional filter arguments to the MCP `wardrobe.list_items` tool.
+- Added tests and live verification for search/filter behavior across service, web, API, and MCP surfaces.
+Acceptance criteria met:
+- Users can filter items by category, brand, season, location, and status.
+- The dashboard shows practical inventory summaries.
+- API query parameters support common item filters.
+- MCP exposes filtered listing behavior through `wardrobe.list_items`.
+- Tests exist for search/filter behavior where practical.
+Notes:
+- Filtering is intentionally scoped to items for now; location and trip filtering can build on the same approach later.

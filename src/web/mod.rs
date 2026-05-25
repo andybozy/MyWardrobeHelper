@@ -2,7 +2,7 @@ use askama::Template;
 use std::collections::{HashMap, HashSet};
 
 use axum::Router;
-use axum::extract::{Form, Multipart, Path, State};
+use axum::extract::{Form, Multipart, Path, Query, State};
 use axum::http::{StatusCode, header};
 use axum::response::{Html, IntoResponse, Redirect};
 use axum::routing::{get, post};
@@ -13,8 +13,8 @@ use tokio::net::TcpListener;
 use crate::api;
 use crate::app::{self, AppContext};
 use crate::domain::{
-    HealthSnapshot, Item, ItemMedia, Location, Movement, NewItem, NewItemMediaInput, NewLocation,
-    NewTrip, NewTripItem, Trip, UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
+    HealthSnapshot, Item, ItemFilter, ItemMedia, Location, Movement, NewItem, NewItemMediaInput,
+    NewLocation, NewTrip, NewTripItem, Trip, UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
 };
 use crate::error::{AppError, AppResult};
 use crate::infra::MediaStorage;
@@ -36,6 +36,12 @@ struct ListEntry {
     title: String,
     subtitle: String,
     meta: String,
+}
+
+#[derive(Debug, Clone)]
+struct FilterSummary {
+    title: String,
+    value: String,
 }
 
 #[derive(Debug, Clone)]
@@ -184,6 +190,16 @@ struct MoveItemFormData {
     notes: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Default)]
+struct ItemFilterQuery {
+    q: Option<String>,
+    category: Option<String>,
+    brand: Option<String>,
+    season: Option<String>,
+    current_location_id: Option<String>,
+    status: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct TripFormData {
     name: String,
@@ -229,6 +245,8 @@ struct HomeTemplate {
     recent_items: Vec<ListEntry>,
     recent_locations: Vec<ListEntry>,
     recent_trips: Vec<ListEntry>,
+    category_summaries: Vec<FilterSummary>,
+    status_summaries: Vec<FilterSummary>,
 }
 
 #[derive(Template)]
@@ -261,6 +279,8 @@ struct ItemsTemplate {
     data_dir: String,
     has_items: bool,
     items: Vec<ListEntry>,
+    filters: ItemFilterQuery,
+    location_options: Vec<LocationOption>,
 }
 
 #[derive(Template)]
@@ -436,6 +456,12 @@ async fn home_handler(State(state): State<WebState>) -> Result<Html<String>, Sta
         .list_trips()
         .await
         .map_err(internal_error_status)?;
+    let all_items = state
+        .context
+        .service
+        .list_items()
+        .await
+        .map_err(internal_error_status)?;
 
     let template = HomeTemplate {
         page_title: "Dashboard",
@@ -485,16 +511,42 @@ async fn home_handler(State(state): State<WebState>) -> Result<Html<String>, Sta
             .take(5)
             .map(trip_entry)
             .collect(),
+        category_summaries: summarize_optional_field(
+            &all_items,
+            |item| item.category.as_deref(),
+            "No category",
+        ),
+        status_summaries: summarize_optional_field(
+            &all_items,
+            |item| item.status.as_deref(),
+            "No status",
+        ),
     };
 
     render_template(&template)
 }
 
-async fn items_list_handler(State(state): State<WebState>) -> Result<Html<String>, StatusCode> {
+async fn items_list_handler(
+    Query(query): Query<ItemFilterQuery>,
+    State(state): State<WebState>,
+) -> Result<Html<String>, StatusCode> {
+    let locations = state
+        .context
+        .service
+        .list_locations()
+        .await
+        .map_err(internal_error_status)?;
     let items = state
         .context
         .service
-        .list_items()
+        .list_items_filtered(ItemFilter {
+            query: query.q.clone(),
+            category: query.category.clone(),
+            brand: query.brand.clone(),
+            season: query.season.clone(),
+            current_location_id: query.current_location_id.clone(),
+            status: query.status.clone(),
+        })
         .await
         .map_err(internal_error_status)?;
 
@@ -519,6 +571,8 @@ async fn items_list_handler(State(state): State<WebState>) -> Result<Html<String
                 meta: format!("/items/{}", item.id),
             })
             .collect(),
+        filters: query,
+        location_options: location_options(&locations),
     };
 
     render_template(&template)
@@ -1298,6 +1352,38 @@ fn movement_view(movement: Movement, location_paths: &HashMap<String, String>) -
     }
 }
 
+fn summarize_optional_field(
+    items: &[Item],
+    accessor: impl Fn(&Item) -> Option<&str>,
+    fallback: &str,
+) -> Vec<FilterSummary> {
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for item in items {
+        let key = accessor(item)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or(fallback)
+            .to_string();
+        *counts.entry(key).or_insert(0) += 1;
+    }
+
+    let mut rows: Vec<FilterSummary> = counts
+        .into_iter()
+        .map(|(title, count)| FilterSummary {
+            title,
+            value: count.to_string(),
+        })
+        .collect();
+    rows.sort_by(|left, right| {
+        right
+            .value
+            .cmp(&left.value)
+            .then_with(|| left.title.cmp(&right.title))
+    });
+    rows.truncate(5);
+    rows
+}
+
 fn empty_item_form() -> ItemFormView {
     ItemFormView {
         name: String::new(),
@@ -1419,6 +1505,70 @@ mod tests {
         assert!(html.contains("Wardrobe Dashboard"));
         assert!(html.contains("Field Jacket"));
         assert!(html.contains("Recent Items"));
+    }
+
+    #[tokio::test]
+    async fn items_page_applies_filter_query() {
+        let sandbox = WebSandbox::new();
+        let context = sandbox.context().await;
+        let _ = context
+            .service
+            .create_item(NewItem {
+                name: "Summer Blazer".to_string(),
+                category: Some("Outerwear".to_string()),
+                subcategory: None,
+                brand: Some("Example".to_string()),
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: Some("Summer".to_string()),
+                formality: None,
+                status: Some("ready".to_string()),
+                current_location_id: None,
+                notes: Some("Rome trip".to_string()),
+            })
+            .await
+            .expect("create item");
+        let _ = context
+            .service
+            .create_item(NewItem {
+                name: "Winter Coat".to_string(),
+                category: Some("Outerwear".to_string()),
+                subcategory: None,
+                brand: Some("Archive".to_string()),
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: Some("Winter".to_string()),
+                formality: None,
+                status: Some("storage".to_string()),
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create item");
+
+        let app = router(context);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/items?brand=Example&season=Summer&status=ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("items route response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let html = String::from_utf8(body.to_vec()).expect("valid utf-8 html");
+
+        assert!(html.contains("Summer Blazer"));
+        assert!(!html.contains("Winter Coat"));
     }
 
     #[tokio::test]

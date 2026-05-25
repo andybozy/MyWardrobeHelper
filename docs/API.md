@@ -12,6 +12,7 @@ The JSON API foundation is available under `/api/v1`. It currently covers:
 - trip list/create/get/update
 - trip item list/create/update/delete
 - physical tag list/create/get/resolve
+- shared item filtering via query parameters
 - a stable JSON error envelope
 
 Item deletion and media deletion remain future sections.
@@ -366,6 +367,20 @@ Current error codes include:
 ## Filtering behavior
 
 Filtering is not implemented yet. `GET /api/v1/items` and `GET /api/v1/locations` currently return the full collection. Query-parameter filtering is planned for later sections.
+Filtering is now available on `GET /api/v1/items` with these query parameters:
+
+- `q`
+- `category`
+- `brand`
+- `season`
+- `current_location_id`
+- `status`
+
+Example:
+
+```text
+/api/v1/items?brand=Example&season=Summer&status=ready
+```
 
 ## Media upload behavior
 

@@ -226,3 +226,13 @@ pub struct HealthSnapshot {
     pub location_count: i64,
     pub trip_count: i64,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct ItemFilter {
+    pub query: Option<String>,
+    pub category: Option<String>,
+    pub brand: Option<String>,
+    pub season: Option<String>,
+    pub current_location_id: Option<String>,
+    pub status: Option<String>,
+}

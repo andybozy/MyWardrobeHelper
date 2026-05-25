@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::{
-    HealthSnapshot, Item, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement, NewItem,
-    NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag,
+    HealthSnapshot, Item, ItemFilter, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement,
+    NewItem, NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag,
     ResolvePhysicalTagInput, ResolvedPhysicalTag, Trip, TripItem, UpdateItemInput, UpdateTripInput,
     UpdateTripItemInput,
 };
@@ -52,7 +52,20 @@ impl WardrobeService {
     }
 
     pub async fn list_items(&self) -> AppResult<Vec<Item>> {
-        self.repository.list_items().await
+        self.list_items_filtered(ItemFilter::default()).await
+    }
+
+    pub async fn list_items_filtered(&self, filter: ItemFilter) -> AppResult<Vec<Item>> {
+        let normalized = ItemFilter {
+            query: normalize_optional(filter.query),
+            category: normalize_optional(filter.category),
+            brand: normalize_optional(filter.brand),
+            season: normalize_optional(filter.season),
+            current_location_id: normalize_optional(filter.current_location_id),
+            status: normalize_optional(filter.status),
+        };
+
+        self.repository.list_items_filtered(&normalized).await
     }
 
     pub async fn get_item(&self, id: &str) -> AppResult<Option<Item>> {
@@ -476,8 +489,8 @@ mod tests {
     use crate::app::{init_app, open_context};
     use crate::config::{AppConfig, DEFAULT_HOST, DEFAULT_PORT};
     use crate::domain::{
-        MoveItemInput, NewItem, NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip,
-        NewTripItem, ResolvePhysicalTagInput, UpdateItemInput, UpdateTripInput,
+        ItemFilter, MoveItemInput, NewItem, NewItemMediaInput, NewLocation, NewPhysicalTag,
+        NewTrip, NewTripItem, ResolvePhysicalTagInput, UpdateItemInput, UpdateTripInput,
         UpdateTripItemInput,
     };
 
@@ -1029,6 +1042,125 @@ mod tests {
         assert_eq!(tag.bound_entity_type, "location");
         assert_eq!(
             service.list_physical_tags().await.expect("list tags").len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn item_filters_cover_required_fields_and_query() {
+        let sandbox = ServiceSandbox::new();
+        let service = sandbox.service().await;
+
+        let location = service
+            .create_location(NewLocation {
+                name: "Travel Shelf".to_string(),
+                location_type: "Shelf".to_string(),
+                parent_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create location");
+        let item = service
+            .create_item(NewItem {
+                name: "Summer Blazer".to_string(),
+                category: Some("Outerwear".to_string()),
+                subcategory: None,
+                brand: Some("Example".to_string()),
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: Some("Summer".to_string()),
+                formality: None,
+                status: Some("ready".to_string()),
+                current_location_id: Some(location.id.clone()),
+                notes: Some("Pack for Rome".to_string()),
+            })
+            .await
+            .expect("create filtered item");
+        service
+            .create_item(NewItem {
+                name: "Winter Coat".to_string(),
+                category: Some("Outerwear".to_string()),
+                subcategory: None,
+                brand: Some("Archive".to_string()),
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: Some("Winter".to_string()),
+                formality: None,
+                status: Some("storage".to_string()),
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create second item");
+
+        assert_eq!(
+            service
+                .list_items_filtered(ItemFilter {
+                    category: Some("Outerwear".to_string()),
+                    ..ItemFilter::default()
+                })
+                .await
+                .expect("category filter")
+                .len(),
+            2
+        );
+        assert_eq!(
+            service
+                .list_items_filtered(ItemFilter {
+                    brand: Some("Example".to_string()),
+                    ..ItemFilter::default()
+                })
+                .await
+                .expect("brand filter")
+                .len(),
+            1
+        );
+        assert_eq!(
+            service
+                .list_items_filtered(ItemFilter {
+                    season: Some("Summer".to_string()),
+                    ..ItemFilter::default()
+                })
+                .await
+                .expect("season filter")[0]
+                .id,
+            item.id
+        );
+        assert_eq!(
+            service
+                .list_items_filtered(ItemFilter {
+                    current_location_id: Some(location.id.clone()),
+                    ..ItemFilter::default()
+                })
+                .await
+                .expect("location filter")
+                .len(),
+            1
+        );
+        assert_eq!(
+            service
+                .list_items_filtered(ItemFilter {
+                    status: Some("ready".to_string()),
+                    ..ItemFilter::default()
+                })
+                .await
+                .expect("status filter")
+                .len(),
+            1
+        );
+        assert_eq!(
+            service
+                .list_items_filtered(ItemFilter {
+                    query: Some("rome".to_string()),
+                    ..ItemFilter::default()
+                })
+                .await
+                .expect("query filter")
+                .len(),
             1
         );
     }

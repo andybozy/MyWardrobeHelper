@@ -6,7 +6,8 @@ use serde_json::{Map, Value, json};
 
 use crate::app::AppContext;
 use crate::domain::{
-    MoveItemInput, NewItem, NewLocation, NewTrip, NewTripItem, UpdateTripInput, UpdateTripItemInput,
+    ItemFilter, MoveItemInput, NewItem, NewLocation, NewTrip, NewTripItem, UpdateTripInput,
+    UpdateTripItemInput,
 };
 use crate::error::{AppError, AppResult};
 
@@ -30,6 +31,16 @@ struct ToolCallParams {
 #[derive(Debug, Deserialize)]
 struct ItemIdArgs {
     item_id: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct ListItemsArgs {
+    q: Option<String>,
+    category: Option<String>,
+    brand: Option<String>,
+    season: Option<String>,
+    current_location_id: Option<String>,
+    status: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -292,10 +303,23 @@ impl McpServer {
                 })
             })),
             "wardrobe.list_items" => tool_success(
-                service
-                    .list_items()
-                    .await
-                    .map(|items| json!({ "items": items })),
+                with_args::<ListItemsArgs, _, _>(params.arguments, |args| {
+                    let service = service.clone();
+                    async move {
+                        let items = service
+                            .list_items_filtered(ItemFilter {
+                                query: args.q,
+                                category: args.category,
+                                brand: args.brand,
+                                season: args.season,
+                                current_location_id: args.current_location_id,
+                                status: args.status,
+                            })
+                            .await?;
+                        Ok(json!({ "items": items }))
+                    }
+                })
+                .await,
             ),
             "wardrobe.get_item" => tool_success(
                 with_args::<ItemIdArgs, _, _>(params.arguments, |args| {
@@ -641,7 +665,17 @@ fn tool_definitions() -> Vec<Value> {
         tool_definition(
             "wardrobe.list_items",
             "List wardrobe items from the local backend.",
-            json!({ "type": "object", "additionalProperties": false }),
+            json!({
+                "type": "object",
+                "properties": {
+                    "q": { "type": "string" },
+                    "category": { "type": "string" },
+                    "brand": { "type": "string" },
+                    "season": { "type": "string" },
+                    "current_location_id": { "type": "string" },
+                    "status": { "type": "string" }
+                }
+            }),
             true,
             false,
             true,
@@ -957,6 +991,71 @@ mod tests {
 
         assert_eq!(response[0]["result"]["structuredContent"]["status"], "ok");
         assert_eq!(response[0]["result"]["structuredContent"]["item_count"], 0);
+    }
+
+    #[test]
+    fn list_items_tool_supports_filter_arguments() {
+        let runtime = tokio::runtime::Runtime::new().expect("runtime");
+        let sandbox = McpSandbox::new();
+        let context = runtime.block_on(async {
+            let context = sandbox.context().await;
+            let _ = context
+                .service
+                .create_item(NewItem {
+                    name: "Summer Blazer".to_string(),
+                    category: Some("Outerwear".to_string()),
+                    subcategory: None,
+                    brand: Some("Example".to_string()),
+                    size: None,
+                    color_primary: None,
+                    color_secondary: None,
+                    material: None,
+                    season: Some("Summer".to_string()),
+                    formality: None,
+                    status: Some("ready".to_string()),
+                    current_location_id: None,
+                    notes: None,
+                })
+                .await
+                .expect("create item");
+            let _ = context
+                .service
+                .create_item(NewItem {
+                    name: "Winter Coat".to_string(),
+                    category: Some("Outerwear".to_string()),
+                    subcategory: None,
+                    brand: Some("Archive".to_string()),
+                    size: None,
+                    color_primary: None,
+                    color_secondary: None,
+                    material: None,
+                    season: Some("Winter".to_string()),
+                    formality: None,
+                    status: Some("storage".to_string()),
+                    current_location_id: None,
+                    notes: None,
+                })
+                .await
+                .expect("create item");
+            context
+        });
+
+        let mut server = initialized_server(context);
+        let response = runtime.block_on(server.handle_line(
+            r#"{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"wardrobe.list_items","arguments":{"brand":"Example","season":"Summer","status":"ready"}}}"#,
+        ));
+
+        assert_eq!(
+            response[0]["result"]["structuredContent"]["items"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            response[0]["result"]["structuredContent"]["items"][0]["name"],
+            "Summer Blazer"
+        );
     }
 
     #[test]

@@ -52,6 +52,14 @@
       "get": {
         "summary": "List items",
         "operationId": "listItems",
+        "parameters": [
+          { "name": "q", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "brand", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "season", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "current_location_id", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
         "responses": {
           "200": {
             "description": "Current wardrobe items",

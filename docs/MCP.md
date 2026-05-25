@@ -67,6 +67,10 @@ Tool output shape:
 - `structuredContent`: machine-readable JSON object
 - `isError: true` for tool-level failures such as invalid arguments or missing entities
 
+Current filtering support:
+
+- `wardrobe.list_items` accepts optional `q`, `category`, `brand`, `season`, `current_location_id`, and `status` arguments
+
 ## Protocol flow
 
 Typical session:

@@ -15,6 +15,45 @@
 </section>
 
 <section class="panel-grid is-status">
+    <article class="panel">
+        <h3>Filter Items</h3>
+        <form method="get" action="/items" class="item-form">
+            <label>
+                <span>Search</span>
+                <input type="text" name="q" value="{{ filters.q.clone().unwrap_or_default() }}" placeholder="name, brand, notes">
+            </label>
+            <label>
+                <span>Category</span>
+                <input type="text" name="category" value="{{ filters.category.clone().unwrap_or_default() }}">
+            </label>
+            <label>
+                <span>Brand</span>
+                <input type="text" name="brand" value="{{ filters.brand.clone().unwrap_or_default() }}">
+            </label>
+            <label>
+                <span>Season</span>
+                <input type="text" name="season" value="{{ filters.season.clone().unwrap_or_default() }}">
+            </label>
+            <label>
+                <span>Status</span>
+                <input type="text" name="status" value="{{ filters.status.clone().unwrap_or_default() }}">
+            </label>
+            <label>
+                <span>Location</span>
+                <select name="current_location_id">
+                    <option value="">Any location</option>
+                    {% for option in location_options %}
+                    <option value="{{ option.id }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="form-actions">
+                <button type="submit">Apply filters</button>
+                <a href="/items">Reset</a>
+            </div>
+        </form>
+    </article>
+
     <article class="panel wide-panel">
         <h3>Inventory List</h3>
         {% if has_items %}

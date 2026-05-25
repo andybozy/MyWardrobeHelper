@@ -80,5 +80,29 @@
         <p class="empty-state">No trips have been planned yet.</p>
         {% endif %}
     </article>
- </section>
+
+    <article class="panel">
+        <h3>Top Categories</h3>
+        <ul class="record-list">
+            {% for entry in category_summaries %}
+            <li>
+                <strong>{{ entry.title }}</strong>
+                <em>{{ entry.value }} item(s)</em>
+            </li>
+            {% endfor %}
+        </ul>
+    </article>
+
+    <article class="panel">
+        <h3>Status Summary</h3>
+        <ul class="record-list">
+            {% for entry in status_summaries %}
+            <li>
+                <strong>{{ entry.title }}</strong>
+                <em>{{ entry.value }} item(s)</em>
+            </li>
+            {% endfor %}
+        </ul>
+    </article>
+</section>
 {% endblock %}

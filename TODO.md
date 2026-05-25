@@ -1,19 +1,3 @@
-## SEC-016 - Search, filters, and practical dashboard views
-Objective:
-- Add search and useful filters for items.
-- Improve the dashboard with inventory summaries and practical views.
-- Expose common filtering through API query parameters.
-
-Acceptance criteria:
-- Users can filter items by at least category, brand, season, location, and status.
-- The dashboard shows useful inventory summaries.
-- API query parameters support common filters.
-- MCP can expose filtered listing behavior where appropriate.
-- Tests exist for search/filter behavior where practical.
-
-Notes:
-- Focus on usefulness, not visual complexity.
-
 ## SEC-017 - Backup, export, and data durability
 Objective:
 - Implement backup command(s).

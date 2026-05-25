@@ -1,0 +1,7 @@
+/target
+/.data
+/.codex/config.toml
+.DS_Store
+DerivedData/
+*.xcuserstate
+xcuserdata/

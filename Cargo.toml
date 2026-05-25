@@ -1,0 +1,7 @@
+[package]
+name = "mywardrobehelper"
+version = "0.1.0"
+edition = "2024"
+description = "Local-first wardrobe management system with a single Rust backend and native iOS companion app"
+
+[dependencies]

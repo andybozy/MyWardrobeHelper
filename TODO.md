@@ -1,20 +1,3 @@
-## SEC-010 - Trips and packing lists
-Objective:
-- Implement trip CRUD.
-- Allow adding items to a trip packing list.
-- Track simple packing statuses.
-
-Acceptance criteria:
-- A user can create and edit a trip.
-- A user can add/remove items to a trip.
-- A trip page shows its packing list clearly.
-- Packing list status is persisted.
-- Equivalent service behavior is available to API and MCP.
-- Tests exist for trip and trip-item persistence.
-
-Notes:
-- Do not overcomplicate intelligence yet.
-
 ## SEC-011 - Native iOS app foundation and LAN server connection
 Objective:
 - Create the native iOS companion app structure.

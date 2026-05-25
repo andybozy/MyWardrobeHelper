@@ -499,6 +499,281 @@
           }
         }
       }
+    },
+    "/trips": {
+      "get": {
+        "summary": "List trips",
+        "operationId": "listTrips",
+        "responses": {
+          "200": {
+            "description": "Current trip records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripsListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a trip",
+        "operationId": "createTrip",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTripRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created trip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trip"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{id}": {
+      "get": {
+        "summary": "Get a trip",
+        "operationId": "getTrip",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trip found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Trip" }
+              }
+            }
+          },
+          "404": {
+            "description": "Trip not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a trip",
+        "operationId": "updateTrip",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PatchTripRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated trip",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Trip" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          },
+          "404": {
+            "description": "Trip not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{id}/items": {
+      "get": {
+        "summary": "List trip packing entries",
+        "operationId": "listTripItems",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trip packing entries",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TripItemsListResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Trip not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add an item to a trip packing list",
+        "operationId": "addTripItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTripItemRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created trip item",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TripItem" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          },
+          "404": {
+            "description": "Trip not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{id}/items/{trip_item_id}": {
+      "patch": {
+        "summary": "Update a trip packing entry",
+        "operationId": "updateTripItem",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "trip_item_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PatchTripItemRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated trip item",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TripItem" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          },
+          "404": {
+            "description": "Trip not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a trip packing entry",
+        "operationId": "deleteTripItem",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "trip_item_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": {
+            "description": "Trip item removed"
+          },
+          "404": {
+            "description": "Trip not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -570,6 +845,26 @@
           }
         }
       },
+      "TripsListResponse": {
+        "type": "object",
+        "required": ["trips"],
+        "properties": {
+          "trips": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Trip" }
+          }
+        }
+      },
+      "TripItemsListResponse": {
+        "type": "object",
+        "required": ["trip_items"],
+        "properties": {
+          "trip_items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TripItem" }
+          }
+        }
+      },
       "CreateItemRequest": {
         "type": "object",
         "required": ["name"],
@@ -621,6 +916,49 @@
           "name": { "type": "string" },
           "location_type": { "type": "string" },
           "parent_id": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "CreateTripRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "destination": { "type": ["string", "null"] },
+          "start_date": { "type": ["string", "null"] },
+          "end_date": { "type": ["string", "null"] },
+          "trip_type": { "type": ["string", "null"] },
+          "luggage_type": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "PatchTripRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": ["string", "null"] },
+          "destination": { "type": ["string", "null"] },
+          "start_date": { "type": ["string", "null"] },
+          "end_date": { "type": ["string", "null"] },
+          "trip_type": { "type": ["string", "null"] },
+          "luggage_type": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "CreateTripItemRequest": {
+        "type": "object",
+        "required": ["item_id"],
+        "properties": {
+          "item_id": { "type": "string" },
+          "planned_day": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "PatchTripItemRequest": {
+        "type": "object",
+        "properties": {
+          "planned_day": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] }
         }
       },
@@ -699,6 +1037,35 @@
           "reason": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] },
           "moved_at": { "type": "string" }
+        }
+      },
+      "Trip": {
+        "type": "object",
+        "required": ["id", "name", "created_at", "updated_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "destination": { "type": ["string", "null"] },
+          "start_date": { "type": ["string", "null"] },
+          "end_date": { "type": ["string", "null"] },
+          "trip_type": { "type": ["string", "null"] },
+          "luggage_type": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "created_at": { "type": "string" },
+          "updated_at": { "type": "string" }
+        }
+      },
+      "TripItem": {
+        "type": "object",
+        "required": ["id", "trip_id", "item_id"],
+        "properties": {
+          "id": { "type": "string" },
+          "trip_id": { "type": "string" },
+          "item_id": { "type": "string" },
+          "item_name": { "type": ["string", "null"] },
+          "planned_day": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
         }
       },
       "ErrorEnvelope": {

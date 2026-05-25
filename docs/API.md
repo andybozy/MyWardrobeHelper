@@ -9,9 +9,11 @@ The JSON API foundation is available under `/api/v1`. It currently covers:
 - item move and movement history
 - item media list/upload
 - location list/create/get
+- trip list/create/get/update
+- trip item list/create/update/delete
 - a stable JSON error envelope
 
-Trip routes, item deletion, and media deletion remain future sections.
+Item deletion and media deletion remain future sections.
 
 ## Versioning
 
@@ -48,6 +50,20 @@ Locations:
 - `GET /api/v1/locations/:id`
 
 Nested locations are created by passing `parent_id` when creating a location.
+
+Trips:
+
+- `GET /api/v1/trips`
+- `POST /api/v1/trips`
+- `GET /api/v1/trips/:id`
+- `PATCH /api/v1/trips/:id`
+
+Trip items:
+
+- `GET /api/v1/trips/:id/items`
+- `POST /api/v1/trips/:id/items`
+- `PATCH /api/v1/trips/:id/items/:trip_item_id`
+- `DELETE /api/v1/trips/:id/items/:trip_item_id`
 
 ## Response shape
 
@@ -204,6 +220,52 @@ Response: `200 OK`
 }
 ```
 
+`PATCH /api/v1/trips/:id`
+
+Request:
+
+```json
+{
+  "luggage_type": "carry-on",
+  "notes": "Two nights"
+}
+```
+
+Response: `200 OK`
+
+```json
+{
+  "id": "trip-1779735257716-2",
+  "name": "Berlin Weekend",
+  "destination": "Berlin",
+  "start_date": null,
+  "end_date": null,
+  "trip_type": null,
+  "luggage_type": "carry-on",
+  "notes": "Two nights",
+  "created_at": "2026-05-25 18:54:17",
+  "updated_at": "2026-05-25 19:30:00"
+}
+```
+
+`GET /api/v1/trips/:id/items`
+
+```json
+{
+  "trip_items": [
+    {
+      "id": "trip-item-1779735267049-1",
+      "trip_id": "trip-1779735257716-2",
+      "item_id": "item-1779735257714-1",
+      "item_name": "Travel Coat",
+      "planned_day": "day-1",
+      "status": "packed",
+      "notes": "Packed in top section"
+    }
+  ]
+}
+```
+
 ## Error contract
 
 Every API error uses the same top-level envelope:
@@ -228,6 +290,7 @@ Current error codes include:
 - `NO_MEDIA_FILES`
 - `ITEM_NOT_FOUND`
 - `LOCATION_NOT_FOUND`
+- `TRIP_NOT_FOUND`
 - `SERVICE_NOT_READY`
 - `INTERNAL_ERROR`
 

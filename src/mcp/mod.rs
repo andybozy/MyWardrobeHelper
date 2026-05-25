@@ -5,7 +5,9 @@ use serde::de::DeserializeOwned;
 use serde_json::{Map, Value, json};
 
 use crate::app::AppContext;
-use crate::domain::{MoveItemInput, NewItem, NewLocation, NewTrip, NewTripItem};
+use crate::domain::{
+    MoveItemInput, NewItem, NewLocation, NewTrip, NewTripItem, UpdateTripInput, UpdateTripItemInput,
+};
 use crate::error::{AppError, AppResult};
 
 const SUPPORTED_PROTOCOL_VERSIONS: &[&str] =
@@ -80,12 +82,39 @@ struct CreateTripArgs {
 }
 
 #[derive(Debug, Deserialize)]
+struct UpdateTripArgs {
+    trip_id: String,
+    name: Option<String>,
+    destination: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    trip_type: Option<String>,
+    luggage_type: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct AddTripItemArgs {
     trip_id: String,
     item_id: String,
     planned_day: Option<String>,
     status: Option<String>,
     notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateTripItemArgs {
+    trip_id: String,
+    trip_item_id: String,
+    planned_day: Option<String>,
+    status: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RemoveTripItemArgs {
+    trip_id: String,
+    trip_item_id: String,
 }
 
 pub async fn serve(context: AppContext) -> AppResult<()> {
@@ -388,6 +417,33 @@ impl McpServer {
                 })
                 .await,
             ),
+            "wardrobe.update_trip" => tool_success(
+                with_args::<UpdateTripArgs, _, _>(params.arguments, |args| {
+                    let service = service.clone();
+                    async move {
+                        let existing = service
+                            .get_trip(&args.trip_id)
+                            .await?
+                            .ok_or_else(|| AppError::invalid_argument("trip does not exist"))?;
+                        let trip = service
+                            .update_trip(
+                                &args.trip_id,
+                                UpdateTripInput {
+                                    name: args.name.unwrap_or(existing.name),
+                                    destination: args.destination.or(existing.destination),
+                                    start_date: args.start_date.or(existing.start_date),
+                                    end_date: args.end_date.or(existing.end_date),
+                                    trip_type: args.trip_type.or(existing.trip_type),
+                                    luggage_type: args.luggage_type.or(existing.luggage_type),
+                                    notes: args.notes.or(existing.notes),
+                                },
+                            )
+                            .await?;
+                        Ok(json!({ "trip": trip }))
+                    }
+                })
+                .await,
+            ),
             "wardrobe.get_trip" => tool_success(
                 with_args::<TripIdArgs, _, _>(params.arguments, |args| {
                     let service = service.clone();
@@ -421,12 +477,48 @@ impl McpServer {
                 })
                 .await,
             ),
+            "wardrobe.update_trip_item" => tool_success(
+                with_args::<UpdateTripItemArgs, _, _>(params.arguments, |args| {
+                    let service = service.clone();
+                    async move {
+                        let trip_item = service
+                            .update_trip_item(
+                                &args.trip_id,
+                                &args.trip_item_id,
+                                UpdateTripItemInput {
+                                    planned_day: args.planned_day,
+                                    status: args.status,
+                                    notes: args.notes,
+                                },
+                            )
+                            .await?;
+                        Ok(json!({ "trip_item": trip_item }))
+                    }
+                })
+                .await,
+            ),
             "wardrobe.list_trip_items" => tool_success(
                 with_args::<TripIdArgs, _, _>(params.arguments, |args| {
                     let service = service.clone();
                     async move {
                         let trip_items = service.list_trip_items(&args.trip_id).await?;
                         Ok(json!({ "trip_items": trip_items }))
+                    }
+                })
+                .await,
+            ),
+            "wardrobe.remove_trip_item" => tool_success(
+                with_args::<RemoveTripItemArgs, _, _>(params.arguments, |args| {
+                    let service = service.clone();
+                    async move {
+                        service
+                            .remove_trip_item(&args.trip_id, &args.trip_item_id)
+                            .await?;
+                        Ok(json!({
+                            "removed": true,
+                            "trip_id": args.trip_id,
+                            "trip_item_id": args.trip_item_id
+                        }))
                     }
                 })
                 .await,
@@ -679,6 +771,27 @@ fn tool_definitions() -> Vec<Value> {
             false,
         ),
         tool_definition(
+            "wardrobe.update_trip",
+            "Update trip metadata in the local backend.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "trip_id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "destination": { "type": "string" },
+                    "start_date": { "type": "string" },
+                    "end_date": { "type": "string" },
+                    "trip_type": { "type": "string" },
+                    "luggage_type": { "type": "string" },
+                    "notes": { "type": "string" }
+                },
+                "required": ["trip_id"]
+            }),
+            false,
+            false,
+            false,
+        ),
+        tool_definition(
             "wardrobe.get_trip",
             "Read one trip by id.",
             json!({
@@ -711,6 +824,24 @@ fn tool_definitions() -> Vec<Value> {
             false,
         ),
         tool_definition(
+            "wardrobe.update_trip_item",
+            "Update one trip packing entry.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "trip_id": { "type": "string" },
+                    "trip_item_id": { "type": "string" },
+                    "planned_day": { "type": "string" },
+                    "status": { "type": "string" },
+                    "notes": { "type": "string" }
+                },
+                "required": ["trip_id", "trip_item_id"]
+            }),
+            false,
+            false,
+            false,
+        ),
+        tool_definition(
             "wardrobe.list_trip_items",
             "List trip packing entries for one trip.",
             json!({
@@ -723,6 +854,21 @@ fn tool_definitions() -> Vec<Value> {
             true,
             false,
             true,
+        ),
+        tool_definition(
+            "wardrobe.remove_trip_item",
+            "Remove one item from a trip packing list.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "trip_id": { "type": "string" },
+                    "trip_item_id": { "type": "string" }
+                },
+                "required": ["trip_id", "trip_item_id"]
+            }),
+            false,
+            false,
+            false,
         ),
     ]
 }
@@ -885,12 +1031,25 @@ mod tests {
             item_id
         );
 
+        let updated_trip_item = runtime.block_on(server.handle_line(&format!(
+            r#"{{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{{"name":"wardrobe.update_trip_item","arguments":{{"trip_id":"{trip_id}","trip_item_id":"{}","status":"packed"}}}}}}"#,
+            add_trip_item[0]["result"]["structuredContent"]["trip_item"]["id"].as_str().unwrap()
+        )));
+        assert_eq!(
+            updated_trip_item[0]["result"]["structuredContent"]["trip_item"]["status"],
+            "packed"
+        );
+
         let trip_items = runtime.block_on(server.handle_line(&format!(
-            r#"{{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{{"name":"wardrobe.list_trip_items","arguments":{{"trip_id":"{trip_id}"}}}}}}"#
+            r#"{{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{{"name":"wardrobe.list_trip_items","arguments":{{"trip_id":"{trip_id}"}}}}}}"#
         )));
         assert_eq!(
             trip_items[0]["result"]["structuredContent"]["trip_items"][0]["item_id"],
             item_id
+        );
+        assert_eq!(
+            trip_items[0]["result"]["structuredContent"]["trip_items"][0]["status"],
+            "packed"
         );
     }
 

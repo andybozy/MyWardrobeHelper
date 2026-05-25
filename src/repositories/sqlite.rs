@@ -6,6 +6,7 @@ use crate::db;
 use crate::domain::{
     HealthSnapshot, Item, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement, NewItem,
     NewItemMediaInput, NewLocation, NewTrip, NewTripItem, Trip, TripItem, UpdateItemInput,
+    UpdateTripInput, UpdateTripItemInput,
 };
 use crate::error::{AppError, AppResult};
 
@@ -410,6 +411,31 @@ impl SqliteWardrobeRepository {
         row.map(map_trip_row).transpose()
     }
 
+    pub async fn update_trip(&self, trip_id: &str, input: &UpdateTripInput) -> AppResult<Trip> {
+        let mut connection = self.connect().await?;
+        sqlx::query(
+            "UPDATE trips
+             SET name = ?, destination = ?, start_date = ?, end_date = ?, trip_type = ?,
+                 luggage_type = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?",
+        )
+        .bind(&input.name)
+        .bind(&input.destination)
+        .bind(&input.start_date)
+        .bind(&input.end_date)
+        .bind(&input.trip_type)
+        .bind(&input.luggage_type)
+        .bind(&input.notes)
+        .bind(trip_id)
+        .execute(&mut connection)
+        .await
+        .map_err(|error| AppError::database("update trip", error))?;
+
+        self.get_trip(trip_id)
+            .await?
+            .ok_or_else(|| AppError::database("load trip after update", sqlx::Error::RowNotFound))
+    }
+
     pub async fn add_trip_item(
         &self,
         trip_item_id: &str,
@@ -455,6 +481,44 @@ impl SqliteWardrobeRepository {
         rows.into_iter()
             .map(map_trip_item_row)
             .collect::<AppResult<Vec<_>>>()
+    }
+
+    pub async fn update_trip_item(
+        &self,
+        trip_id: &str,
+        trip_item_id: &str,
+        input: &UpdateTripItemInput,
+    ) -> AppResult<TripItem> {
+        let mut connection = self.connect().await?;
+        sqlx::query(
+            "UPDATE trip_items
+             SET planned_day = ?, status = ?, notes = ?
+             WHERE id = ? AND trip_id = ?",
+        )
+        .bind(&input.planned_day)
+        .bind(&input.status)
+        .bind(&input.notes)
+        .bind(trip_item_id)
+        .bind(trip_id)
+        .execute(&mut connection)
+        .await
+        .map_err(|error| AppError::database("update trip item", error))?;
+
+        self.get_trip_item(trip_item_id).await?.ok_or_else(|| {
+            AppError::database("load trip item after update", sqlx::Error::RowNotFound)
+        })
+    }
+
+    pub async fn delete_trip_item(&self, trip_id: &str, trip_item_id: &str) -> AppResult<()> {
+        let mut connection = self.connect().await?;
+        sqlx::query("DELETE FROM trip_items WHERE id = ? AND trip_id = ?")
+            .bind(trip_item_id)
+            .bind(trip_id)
+            .execute(&mut connection)
+            .await
+            .map_err(|error| AppError::database("delete trip item", error))?;
+
+        Ok(())
     }
 
     pub async fn health_snapshot(&self) -> AppResult<HealthSnapshot> {

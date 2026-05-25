@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::domain::{
     HealthSnapshot, Item, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement, NewItem,
     NewItemMediaInput, NewLocation, NewTrip, NewTripItem, Trip, TripItem, UpdateItemInput,
+    UpdateTripInput, UpdateTripItemInput,
 };
 use crate::error::{AppError, AppResult};
 use crate::infra::MediaStorage;
@@ -217,6 +218,27 @@ impl WardrobeService {
         self.repository.get_trip(trip_id).await
     }
 
+    pub async fn update_trip(&self, trip_id: &str, input: UpdateTripInput) -> AppResult<Trip> {
+        let trip_id = require_identifier("trip id", trip_id)?;
+        if self.repository.get_trip(trip_id).await?.is_none() {
+            return Err(AppError::invalid_argument(format!(
+                "trip `{trip_id}` does not exist"
+            )));
+        }
+
+        let normalized = UpdateTripInput {
+            name: require_name("trip name", input.name)?,
+            destination: normalize_optional(input.destination),
+            start_date: normalize_optional(input.start_date),
+            end_date: normalize_optional(input.end_date),
+            trip_type: normalize_optional(input.trip_type),
+            luggage_type: normalize_optional(input.luggage_type),
+            notes: normalize_optional(input.notes),
+        };
+
+        self.repository.update_trip(trip_id, &normalized).await
+    }
+
     pub async fn add_trip_item(&self, trip_id: &str, input: NewTripItem) -> AppResult<TripItem> {
         let trip_id = require_identifier("trip id", trip_id)?;
         if self.repository.get_trip(trip_id).await?.is_none() {
@@ -253,6 +275,45 @@ impl WardrobeService {
         }
 
         self.repository.list_trip_items(trip_id).await
+    }
+
+    pub async fn update_trip_item(
+        &self,
+        trip_id: &str,
+        trip_item_id: &str,
+        input: UpdateTripItemInput,
+    ) -> AppResult<TripItem> {
+        let trip_id = require_identifier("trip id", trip_id)?;
+        let trip_item_id = require_identifier("trip item id", trip_item_id)?;
+        if self.repository.get_trip(trip_id).await?.is_none() {
+            return Err(AppError::invalid_argument(format!(
+                "trip `{trip_id}` does not exist"
+            )));
+        }
+
+        let normalized = UpdateTripItemInput {
+            planned_day: normalize_optional(input.planned_day),
+            status: normalize_optional(input.status),
+            notes: normalize_optional(input.notes),
+        };
+
+        self.repository
+            .update_trip_item(trip_id, trip_item_id, &normalized)
+            .await
+    }
+
+    pub async fn remove_trip_item(&self, trip_id: &str, trip_item_id: &str) -> AppResult<()> {
+        let trip_id = require_identifier("trip id", trip_id)?;
+        let trip_item_id = require_identifier("trip item id", trip_item_id)?;
+        if self.repository.get_trip(trip_id).await?.is_none() {
+            return Err(AppError::invalid_argument(format!(
+                "trip `{trip_id}` does not exist"
+            )));
+        }
+
+        self.repository
+            .delete_trip_item(trip_id, trip_item_id)
+            .await
     }
 }
 
@@ -331,7 +392,7 @@ mod tests {
     use crate::config::{AppConfig, DEFAULT_HOST, DEFAULT_PORT};
     use crate::domain::{
         MoveItemInput, NewItem, NewItemMediaInput, NewLocation, NewTrip, NewTripItem,
-        UpdateItemInput,
+        UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
     };
 
     use super::*;
@@ -582,6 +643,123 @@ mod tests {
         assert_eq!(trip_items.len(), 1);
         assert_eq!(trip_items[0].id, trip_item.id);
         assert_eq!(trip_items[0].item_name.as_deref(), Some("Merino Tee"));
+    }
+
+    #[tokio::test]
+    async fn update_trip_rewrites_core_fields() {
+        let sandbox = ServiceSandbox::new();
+        let service = sandbox.service().await;
+
+        let trip = service
+            .create_trip(NewTrip {
+                name: "Lake Weekend".to_string(),
+                destination: None,
+                start_date: None,
+                end_date: None,
+                trip_type: None,
+                luggage_type: None,
+                notes: None,
+            })
+            .await
+            .expect("create trip");
+
+        let updated = service
+            .update_trip(
+                &trip.id,
+                UpdateTripInput {
+                    name: "Lake Weekend Updated".to_string(),
+                    destination: Some("Como".to_string()),
+                    start_date: Some("2026-06-10".to_string()),
+                    end_date: Some("2026-06-12".to_string()),
+                    trip_type: Some("leisure".to_string()),
+                    luggage_type: Some("duffel".to_string()),
+                    notes: Some("Bring rain shell".to_string()),
+                },
+            )
+            .await
+            .expect("update trip");
+
+        assert_eq!(updated.name, "Lake Weekend Updated");
+        assert_eq!(updated.destination.as_deref(), Some("Como"));
+        assert_eq!(updated.luggage_type.as_deref(), Some("duffel"));
+    }
+
+    #[tokio::test]
+    async fn update_and_remove_trip_items() {
+        let sandbox = ServiceSandbox::new();
+        let service = sandbox.service().await;
+
+        let item = service
+            .create_item(NewItem {
+                name: "Packing Tee".to_string(),
+                category: None,
+                subcategory: None,
+                brand: None,
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: None,
+                formality: None,
+                status: None,
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create item");
+        let trip = service
+            .create_trip(NewTrip {
+                name: "Rome Overnight".to_string(),
+                destination: None,
+                start_date: None,
+                end_date: None,
+                trip_type: None,
+                luggage_type: None,
+                notes: None,
+            })
+            .await
+            .expect("create trip");
+        let trip_item = service
+            .add_trip_item(
+                &trip.id,
+                NewTripItem {
+                    item_id: item.id,
+                    planned_day: Some("day-1".to_string()),
+                    status: Some("planned".to_string()),
+                    notes: None,
+                },
+            )
+            .await
+            .expect("add trip item");
+
+        let updated = service
+            .update_trip_item(
+                &trip.id,
+                &trip_item.id,
+                UpdateTripItemInput {
+                    planned_day: Some("day-2".to_string()),
+                    status: Some("packed".to_string()),
+                    notes: Some("Placed near zipper pouch".to_string()),
+                },
+            )
+            .await
+            .expect("update trip item");
+
+        assert_eq!(updated.status.as_deref(), Some("packed"));
+        assert_eq!(updated.planned_day.as_deref(), Some("day-2"));
+
+        service
+            .remove_trip_item(&trip.id, &trip_item.id)
+            .await
+            .expect("remove trip item");
+
+        assert!(
+            service
+                .list_trip_items(&trip.id)
+                .await
+                .expect("list trip items")
+                .is_empty()
+        );
     }
 
     #[tokio::test]

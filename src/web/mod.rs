@@ -14,7 +14,7 @@ use crate::api;
 use crate::app::{self, AppContext};
 use crate::domain::{
     HealthSnapshot, Item, ItemMedia, Location, Movement, NewItem, NewItemMediaInput, NewLocation,
-    Trip, UpdateItemInput,
+    NewTrip, NewTripItem, Trip, UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
 };
 use crate::error::{AppError, AppResult};
 use crate::infra::MediaStorage;
@@ -36,6 +36,14 @@ struct ListEntry {
     title: String,
     subtitle: String,
     meta: String,
+}
+
+#[derive(Debug, Clone)]
+struct TripRow {
+    id: String,
+    name: String,
+    destination: String,
+    date_range: String,
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +103,12 @@ struct ItemDetailView {
 }
 
 #[derive(Debug, Clone)]
+struct TripDetailView {
+    id: String,
+    name: String,
+}
+
+#[derive(Debug, Clone)]
 struct ItemFormView {
     name: String,
     category: String,
@@ -108,6 +122,34 @@ struct ItemFormView {
     formality: String,
     status: String,
     notes: String,
+}
+
+#[derive(Debug, Clone)]
+struct TripFormView {
+    name: String,
+    destination: String,
+    start_date: String,
+    end_date: String,
+    trip_type: String,
+    luggage_type: String,
+    notes: String,
+}
+
+#[derive(Debug, Clone)]
+struct TripItemView {
+    id: String,
+    item_name: String,
+    planned_day: String,
+    status: String,
+    notes: String,
+    update_url: String,
+    delete_url: String,
+}
+
+#[derive(Debug, Clone)]
+struct ItemOption {
+    id: String,
+    label: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,6 +184,32 @@ struct MoveItemFormData {
     notes: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct TripFormData {
+    name: String,
+    destination: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    trip_type: Option<String>,
+    luggage_type: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TripItemFormData {
+    item_id: String,
+    planned_day: Option<String>,
+    status: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TripItemUpdateFormData {
+    planned_day: Option<String>,
+    status: Option<String>,
+    notes: Option<String>,
+}
+
 #[derive(Template)]
 #[template(path = "home.html")]
 struct HomeTemplate {
@@ -149,6 +217,7 @@ struct HomeTemplate {
     nav_home_active: bool,
     nav_items_active: bool,
     nav_locations_active: bool,
+    nav_trips_active: bool,
     nav_status_active: bool,
     data_dir: String,
     local_url: String,
@@ -169,6 +238,7 @@ struct StatusTemplate {
     nav_home_active: bool,
     nav_items_active: bool,
     nav_locations_active: bool,
+    nav_trips_active: bool,
     nav_status_active: bool,
     data_dir: String,
     bind_url: String,
@@ -186,6 +256,7 @@ struct ItemsTemplate {
     nav_home_active: bool,
     nav_items_active: bool,
     nav_locations_active: bool,
+    nav_trips_active: bool,
     nav_status_active: bool,
     data_dir: String,
     has_items: bool,
@@ -199,6 +270,7 @@ struct ItemFormTemplate {
     nav_home_active: bool,
     nav_items_active: bool,
     nav_locations_active: bool,
+    nav_trips_active: bool,
     nav_status_active: bool,
     data_dir: String,
     heading: &'static str,
@@ -214,6 +286,7 @@ struct ItemDetailTemplate {
     nav_home_active: bool,
     nav_items_active: bool,
     nav_locations_active: bool,
+    nav_trips_active: bool,
     nav_status_active: bool,
     data_dir: String,
     item: ItemDetailView,
@@ -233,11 +306,43 @@ struct LocationsTemplate {
     nav_home_active: bool,
     nav_items_active: bool,
     nav_locations_active: bool,
+    nav_trips_active: bool,
     nav_status_active: bool,
     data_dir: String,
     has_locations: bool,
     locations: Vec<LocationRow>,
     parent_options: Vec<LocationOption>,
+}
+
+#[derive(Template)]
+#[template(path = "trips.html")]
+struct TripsTemplate {
+    page_title: &'static str,
+    nav_home_active: bool,
+    nav_items_active: bool,
+    nav_locations_active: bool,
+    nav_trips_active: bool,
+    nav_status_active: bool,
+    data_dir: String,
+    has_trips: bool,
+    trips: Vec<TripRow>,
+}
+
+#[derive(Template)]
+#[template(path = "trip_detail.html")]
+struct TripDetailTemplate {
+    page_title: String,
+    nav_home_active: bool,
+    nav_items_active: bool,
+    nav_locations_active: bool,
+    nav_trips_active: bool,
+    nav_status_active: bool,
+    data_dir: String,
+    trip: TripDetailView,
+    trip_form: TripFormView,
+    item_options: Vec<ItemOption>,
+    has_trip_items: bool,
+    trip_items: Vec<TripItemView>,
 }
 
 pub async fn serve(context: AppContext) -> AppResult<()> {
@@ -285,6 +390,18 @@ fn router(context: AppContext) -> Router {
             "/locations",
             get(locations_handler).post(location_create_handler),
         )
+        .route("/trips", get(trips_handler).post(trip_create_handler))
+        .route("/trips/{id}", get(trip_detail_handler))
+        .route("/trips/{id}/edit", post(trip_update_handler))
+        .route("/trips/{id}/items", post(trip_item_add_handler))
+        .route(
+            "/trips/{id}/items/{trip_item_id}/edit",
+            post(trip_item_update_handler),
+        )
+        .route(
+            "/trips/{id}/items/{trip_item_id}/delete",
+            post(trip_item_delete_handler),
+        )
         .route("/status", get(status_handler))
         .route("/assets/app.css", get(stylesheet_handler))
         .route("/media/{*path}", get(media_file_handler))
@@ -325,6 +442,7 @@ async fn home_handler(State(state): State<WebState>) -> Result<Html<String>, Sta
         nav_home_active: true,
         nav_items_active: false,
         nav_locations_active: false,
+        nav_trips_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         local_url: state.context.config.local_url(),
@@ -385,6 +503,7 @@ async fn items_list_handler(State(state): State<WebState>) -> Result<Html<String
         nav_home_active: false,
         nav_items_active: true,
         nav_locations_active: false,
+        nav_trips_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         has_items: !items.is_empty(),
@@ -411,6 +530,7 @@ async fn item_new_handler(State(state): State<WebState>) -> Result<Html<String>,
         nav_home_active: false,
         nav_items_active: true,
         nav_locations_active: false,
+        nav_trips_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         heading: "Create Item",
@@ -486,6 +606,7 @@ async fn item_detail_handler(
         nav_home_active: false,
         nav_items_active: true,
         nav_locations_active: false,
+        nav_trips_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         item: ItemDetailView {
@@ -531,6 +652,7 @@ async fn item_edit_handler(
         nav_home_active: false,
         nav_items_active: true,
         nav_locations_active: false,
+        nav_trips_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         heading: "Edit Item",
@@ -676,6 +798,7 @@ async fn locations_handler(State(state): State<WebState>) -> Result<Html<String>
         nav_home_active: false,
         nav_items_active: false,
         nav_locations_active: true,
+        nav_trips_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         has_locations: !locations.is_empty(),
@@ -720,6 +843,214 @@ async fn location_create_handler(
     Ok(Redirect::to("/locations"))
 }
 
+async fn trips_handler(State(state): State<WebState>) -> Result<Html<String>, StatusCode> {
+    let trips = state
+        .context
+        .service
+        .list_trips()
+        .await
+        .map_err(internal_error_status)?;
+
+    let template = TripsTemplate {
+        page_title: "Trips",
+        nav_home_active: false,
+        nav_items_active: false,
+        nav_locations_active: false,
+        nav_trips_active: true,
+        nav_status_active: false,
+        data_dir: state.context.layout.root.display().to_string(),
+        has_trips: !trips.is_empty(),
+        trips: trips
+            .into_iter()
+            .map(|trip| TripRow {
+                id: trip.id.clone(),
+                name: trip.name,
+                destination: trip
+                    .destination
+                    .unwrap_or_else(|| "No destination set".to_string()),
+                date_range: join_optional_parts([
+                    trip.start_date.as_deref(),
+                    trip.end_date.as_deref(),
+                ]),
+            })
+            .collect(),
+    };
+
+    render_template(&template)
+}
+
+async fn trip_create_handler(
+    State(state): State<WebState>,
+    Form(form): Form<TripFormData>,
+) -> Result<Redirect, StatusCode> {
+    let trip = state
+        .context
+        .service
+        .create_trip(NewTrip {
+            name: form.name,
+            destination: form.destination,
+            start_date: form.start_date,
+            end_date: form.end_date,
+            trip_type: form.trip_type,
+            luggage_type: form.luggage_type,
+            notes: form.notes,
+        })
+        .await
+        .map_err(internal_error_status)?;
+
+    Ok(Redirect::to(&format!("/trips/{}", trip.id)))
+}
+
+async fn trip_detail_handler(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+) -> Result<Html<String>, StatusCode> {
+    let trip = state
+        .context
+        .service
+        .get_trip(&id)
+        .await
+        .map_err(internal_error_status)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    let items = state
+        .context
+        .service
+        .list_items()
+        .await
+        .map_err(internal_error_status)?;
+    let trip_items = state
+        .context
+        .service
+        .list_trip_items(&id)
+        .await
+        .map_err(internal_error_status)?;
+
+    let template = TripDetailTemplate {
+        page_title: format!("Trip · {}", trip.name),
+        nav_home_active: false,
+        nav_items_active: false,
+        nav_locations_active: false,
+        nav_trips_active: true,
+        nav_status_active: false,
+        data_dir: state.context.layout.root.display().to_string(),
+        trip: TripDetailView {
+            id: trip.id.clone(),
+            name: trip.name.clone(),
+        },
+        trip_form: trip_form_view(&trip),
+        item_options: items
+            .into_iter()
+            .map(|item| ItemOption {
+                id: item.id.clone(),
+                label: format!("{} ({})", item.name, item.id),
+            })
+            .collect(),
+        has_trip_items: !trip_items.is_empty(),
+        trip_items: trip_items
+            .into_iter()
+            .map(|trip_item| TripItemView {
+                id: trip_item.id.clone(),
+                item_name: trip_item
+                    .item_name
+                    .unwrap_or_else(|| trip_item.item_id.clone()),
+                planned_day: trip_item.planned_day.unwrap_or_default(),
+                status: trip_item.status.unwrap_or_default(),
+                notes: trip_item.notes.unwrap_or_default(),
+                update_url: format!("/trips/{}/items/{}/edit", id, trip_item.id),
+                delete_url: format!("/trips/{}/items/{}/delete", id, trip_item.id),
+            })
+            .collect(),
+    };
+
+    render_template(&template)
+}
+
+async fn trip_update_handler(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Form(form): Form<TripFormData>,
+) -> Result<Redirect, StatusCode> {
+    state
+        .context
+        .service
+        .update_trip(
+            &id,
+            UpdateTripInput {
+                name: form.name,
+                destination: form.destination,
+                start_date: form.start_date,
+                end_date: form.end_date,
+                trip_type: form.trip_type,
+                luggage_type: form.luggage_type,
+                notes: form.notes,
+            },
+        )
+        .await
+        .map_err(internal_error_status)?;
+
+    Ok(Redirect::to(&format!("/trips/{id}")))
+}
+
+async fn trip_item_add_handler(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Form(form): Form<TripItemFormData>,
+) -> Result<Redirect, StatusCode> {
+    state
+        .context
+        .service
+        .add_trip_item(
+            &id,
+            NewTripItem {
+                item_id: form.item_id,
+                planned_day: form.planned_day,
+                status: form.status,
+                notes: form.notes,
+            },
+        )
+        .await
+        .map_err(internal_error_status)?;
+
+    Ok(Redirect::to(&format!("/trips/{id}")))
+}
+
+async fn trip_item_update_handler(
+    State(state): State<WebState>,
+    Path((id, trip_item_id)): Path<(String, String)>,
+    Form(form): Form<TripItemUpdateFormData>,
+) -> Result<Redirect, StatusCode> {
+    state
+        .context
+        .service
+        .update_trip_item(
+            &id,
+            &trip_item_id,
+            UpdateTripItemInput {
+                planned_day: form.planned_day,
+                status: form.status,
+                notes: form.notes,
+            },
+        )
+        .await
+        .map_err(internal_error_status)?;
+
+    Ok(Redirect::to(&format!("/trips/{id}")))
+}
+
+async fn trip_item_delete_handler(
+    State(state): State<WebState>,
+    Path((id, trip_item_id)): Path<(String, String)>,
+) -> Result<Redirect, StatusCode> {
+    state
+        .context
+        .service
+        .remove_trip_item(&id, &trip_item_id)
+        .await
+        .map_err(internal_error_status)?;
+
+    Ok(Redirect::to(&format!("/trips/{id}")))
+}
+
 async fn status_handler(State(state): State<WebState>) -> Result<Html<String>, StatusCode> {
     let health = state
         .context
@@ -734,6 +1065,7 @@ async fn status_handler(State(state): State<WebState>) -> Result<Html<String>, S
         nav_home_active: false,
         nav_items_active: false,
         nav_locations_active: false,
+        nav_trips_active: false,
         nav_status_active: true,
         data_dir: state.context.layout.root.display().to_string(),
         bind_url: state.context.config.bind_url(),
@@ -994,6 +1326,18 @@ fn media_view(media: ItemMedia) -> MediaView {
     }
 }
 
+fn trip_form_view(trip: &Trip) -> TripFormView {
+    TripFormView {
+        name: trip.name.clone(),
+        destination: trip.destination.clone().unwrap_or_default(),
+        start_date: trip.start_date.clone().unwrap_or_default(),
+        end_date: trip.end_date.clone().unwrap_or_default(),
+        trip_type: trip.trip_type.clone().unwrap_or_default(),
+        luggage_type: trip.luggage_type.clone().unwrap_or_default(),
+        notes: trip.notes.clone().unwrap_or_default(),
+    }
+}
+
 fn join_optional_parts<'a>(parts: impl IntoIterator<Item = Option<&'a str>>) -> String {
     let values: Vec<&str> = parts
         .into_iter()
@@ -1030,7 +1374,7 @@ mod tests {
 
     use crate::app::{init_app, open_context};
     use crate::config::{AppConfig, DEFAULT_HOST, DEFAULT_PORT};
-    use crate::domain::{NewItem, NewItemMediaInput, NewLocation, NewTrip};
+    use crate::domain::{NewItem, NewItemMediaInput, NewLocation, NewTrip, NewTripItem};
 
     use super::*;
 
@@ -1250,6 +1594,117 @@ mod tests {
         assert!(html.contains("Movement History"));
         assert!(html.contains("packing"));
         assert!(html.contains("Suitcase"));
+    }
+
+    #[tokio::test]
+    async fn trips_page_renders_created_trip() {
+        let sandbox = WebSandbox::new();
+        let context = sandbox.context().await;
+        context
+            .service
+            .create_trip(NewTrip {
+                name: "Berlin Weekend".to_string(),
+                destination: Some("Berlin".to_string()),
+                start_date: Some("2026-06-01".to_string()),
+                end_date: Some("2026-06-03".to_string()),
+                trip_type: Some("leisure".to_string()),
+                luggage_type: Some("carry-on".to_string()),
+                notes: None,
+            })
+            .await
+            .expect("create trip");
+
+        let app = router(context);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/trips")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("trips route response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let html = String::from_utf8(body.to_vec()).expect("valid utf-8 html");
+
+        assert!(html.contains("Berlin Weekend"));
+        assert!(html.contains("carry-on") || html.contains("Berlin"));
+    }
+
+    #[tokio::test]
+    async fn trip_detail_page_renders_packing_list() {
+        let sandbox = WebSandbox::new();
+        let context = sandbox.context().await;
+        let item = context
+            .service
+            .create_item(NewItem {
+                name: "Merino Tee".to_string(),
+                category: None,
+                subcategory: None,
+                brand: None,
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: None,
+                formality: None,
+                status: None,
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create item");
+        let trip = context
+            .service
+            .create_trip(NewTrip {
+                name: "Rome Weekend".to_string(),
+                destination: None,
+                start_date: None,
+                end_date: None,
+                trip_type: None,
+                luggage_type: None,
+                notes: None,
+            })
+            .await
+            .expect("create trip");
+        context
+            .service
+            .add_trip_item(
+                &trip.id,
+                NewTripItem {
+                    item_id: item.id,
+                    planned_day: Some("day-1".to_string()),
+                    status: Some("planned".to_string()),
+                    notes: Some("Pack in outer pocket".to_string()),
+                },
+            )
+            .await
+            .expect("add trip item");
+
+        let app = router(context);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/trips/{}", trip.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("trip detail response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let html = String::from_utf8(body.to_vec()).expect("valid utf-8 html");
+
+        assert!(html.contains("Packing List"));
+        assert!(html.contains("Merino Tee"));
+        assert!(html.contains("Pack in outer pocket"));
     }
 
     #[tokio::test]

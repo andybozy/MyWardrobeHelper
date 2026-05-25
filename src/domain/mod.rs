@@ -125,6 +125,17 @@ pub struct NewTrip {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdateTripInput {
+    pub name: String,
+    pub destination: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub trip_type: Option<String>,
+    pub luggage_type: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Movement {
     pub id: String,
     pub item_id: String,
@@ -162,6 +173,13 @@ pub struct TripItem {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewTripItem {
     pub item_id: String,
+    pub planned_day: Option<String>,
+    pub status: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdateTripItemInput {
     pub planned_day: Option<String>,
     pub status: Option<String>,
     pub notes: Option<String>,

@@ -372,6 +372,22 @@ button {
     cursor: pointer;
 }
 
+.inline-form {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.inline-form input {
+    width: 100%;
+    min-width: 6rem;
+}
+
+.action-cell {
+    display: grid;
+    gap: 0.55rem;
+}
+
 .media-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

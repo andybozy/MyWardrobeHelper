@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Trips</p>
+        <h2>Packing Plans</h2>
+        <p class="lede">Create trips, track the items you plan to bring, and keep packing status close to the itinerary.</p>
+    </div>
+</section>
+
+<section class="panel-grid is-status">
+    <article class="panel">
+        <h3>Create Trip</h3>
+        <form method="post" action="/trips" class="item-form">
+            <label>
+                <span>Name</span>
+                <input type="text" name="name" required>
+            </label>
+            <label>
+                <span>Destination</span>
+                <input type="text" name="destination">
+            </label>
+            <label>
+                <span>Start date</span>
+                <input type="text" name="start_date" placeholder="YYYY-MM-DD">
+            </label>
+            <label>
+                <span>End date</span>
+                <input type="text" name="end_date" placeholder="YYYY-MM-DD">
+            </label>
+            <label>
+                <span>Trip type</span>
+                <input type="text" name="trip_type" placeholder="work, leisure, family">
+            </label>
+            <label>
+                <span>Luggage type</span>
+                <input type="text" name="luggage_type" placeholder="carry-on, duffel, checked">
+            </label>
+            <label class="wide-field">
+                <span>Notes</span>
+                <textarea name="notes" rows="4"></textarea>
+            </label>
+            <button type="submit">Create trip</button>
+        </form>
+    </article>
+
+    <article class="panel wide-panel">
+        <h3>Trip List</h3>
+        {% if has_trips %}
+        <table class="checks-table">
+            <thead>
+            <tr>
+                <th>Name</th>
+                <th>Destination</th>
+                <th>Dates</th>
+                <th>Id</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for trip in trips %}
+            <tr>
+                <td><a href="/trips/{{ trip.id }}">{{ trip.name }}</a></td>
+                <td>{{ trip.destination }}</td>
+                <td>{{ trip.date_range }}</td>
+                <td><code>{{ trip.id }}</code></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No trips exist yet.</p>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

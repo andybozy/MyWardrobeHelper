@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Trip</p>
+        <h2>{{ trip.name }}</h2>
+        <p class="lede">Trip id: <code>{{ trip.id }}</code></p>
+    </div>
+    <aside class="endpoint-card">
+        <p class="panel-label">Back</p>
+        <p class="endpoint"><a href="/trips">All trips</a></p>
+    </aside>
+</section>
+
+<section class="panel-grid is-status">
+    <article class="panel">
+        <h3>Edit Trip</h3>
+        <form method="post" action="/trips/{{ trip.id }}/edit" class="item-form">
+            <label>
+                <span>Name</span>
+                <input type="text" name="name" value="{{ trip_form.name }}" required>
+            </label>
+            <label>
+                <span>Destination</span>
+                <input type="text" name="destination" value="{{ trip_form.destination }}">
+            </label>
+            <label>
+                <span>Start date</span>
+                <input type="text" name="start_date" value="{{ trip_form.start_date }}">
+            </label>
+            <label>
+                <span>End date</span>
+                <input type="text" name="end_date" value="{{ trip_form.end_date }}">
+            </label>
+            <label>
+                <span>Trip type</span>
+                <input type="text" name="trip_type" value="{{ trip_form.trip_type }}">
+            </label>
+            <label>
+                <span>Luggage type</span>
+                <input type="text" name="luggage_type" value="{{ trip_form.luggage_type }}">
+            </label>
+            <label class="wide-field">
+                <span>Notes</span>
+                <textarea name="notes" rows="4">{{ trip_form.notes }}</textarea>
+            </label>
+            <button type="submit">Save trip</button>
+        </form>
+    </article>
+
+    <article class="panel wide-panel">
+        <h3>Add Packing Item</h3>
+        <form method="post" action="/trips/{{ trip.id }}/items" class="item-form">
+            <label>
+                <span>Item</span>
+                <select name="item_id" required>
+                    {% for option in item_options %}
+                    <option value="{{ option.id }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>Planned day</span>
+                <input type="text" name="planned_day" placeholder="day-1, arrival, meeting-day">
+            </label>
+            <label>
+                <span>Status</span>
+                <input type="text" name="status" placeholder="planned, packed, worn">
+            </label>
+            <label class="wide-field">
+                <span>Notes</span>
+                <textarea name="notes" rows="3"></textarea>
+            </label>
+            <button type="submit">Add to packing list</button>
+        </form>
+
+        <h3>Packing List</h3>
+        {% if has_trip_items %}
+        <table class="checks-table">
+            <thead>
+            <tr>
+                <th>Item</th>
+                <th>Planned day</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for trip_item in trip_items %}
+            <tr>
+                <td>{{ trip_item.item_name }}</td>
+                <td>
+                    <form method="post" action="{{ trip_item.update_url }}" class="inline-form">
+                        <input type="text" name="planned_day" value="{{ trip_item.planned_day }}">
+                </td>
+                <td>
+                        <input type="text" name="status" value="{{ trip_item.status }}">
+                </td>
+                <td>
+                        <input type="text" name="notes" value="{{ trip_item.notes }}">
+                </td>
+                <td class="action-cell">
+                        <button type="submit">Save</button>
+                    </form>
+                    <form method="post" action="{{ trip_item.delete_url }}" class="inline-form is-delete">
+                        <button type="submit">Remove</button>
+                    </form>
+                    <code>{{ trip_item.id }}</code>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No items have been added to this packing list yet.</p>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

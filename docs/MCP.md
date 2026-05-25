@@ -34,9 +34,12 @@ Implemented tools:
 - `wardrobe.get_item_movements`
 - `wardrobe.list_trips`
 - `wardrobe.create_trip`
+- `wardrobe.update_trip`
 - `wardrobe.get_trip`
 - `wardrobe.add_trip_item`
+- `wardrobe.update_trip_item`
 - `wardrobe.list_trip_items`
+- `wardrobe.remove_trip_item`
 
 Required acceptance tools present for this section:
 
@@ -104,7 +107,7 @@ Call a tool:
 
 - no MCP resources or prompts yet
 - no tool-update notifications (`listChanged` is `false`)
-- no `wardrobe.update_item` or `wardrobe.update_trip_item` yet
+- no `wardrobe.update_item` yet
 - no streamable HTTP transport yet
 
 ## Related files

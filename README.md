@@ -35,6 +35,7 @@ The repository now has its first backend lifecycle and browser UI layers:
 - An embedded STDIO MCP server now ships for live wardrobe tool use
 - Item create/view/edit flows and filesystem-backed media upload now work through the backend
 - Hierarchical locations and movement history now work through the backend, web UI, API, and MCP
+- Trip CRUD and packing-list status flows now work through the backend, web UI, API, and MCP
 - iOS companion app still exists as a native placeholder shell
 - The remaining API surface and iOS client work remain planned in `TODO.md`
 

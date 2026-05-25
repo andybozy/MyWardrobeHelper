@@ -147,3 +147,20 @@ Acceptance criteria met:
 - Tests exist for hierarchy and movement recording.
 Notes:
 - Direct location changes are intentionally routed through the dedicated move endpoints to keep movement history trustworthy.
+
+## SEC-010 - Trips and packing lists
+Completed: 2026-05-25
+Summary:
+- Added trip create/edit/detail flows and packing-list management to the server-rendered UI.
+- Added trip CRUD plus trip-item create/update/delete routes to the JSON API.
+- Extended the MCP tool surface with trip update, trip-item update, and trip-item removal.
+- Added tests and live smoke verification for trip persistence and packing-list status behavior across service, web, API, and MCP layers.
+Acceptance criteria met:
+- A user can create and edit a trip.
+- A user can add/remove items to a trip.
+- A trip page shows its packing list clearly.
+- Packing list status is persisted.
+- Equivalent service behavior is available to API and MCP.
+- Tests exist for trip and trip-item persistence.
+Notes:
+- Packing-list updates remain intentionally simple for now: planned day, status, and notes are editable per trip item.

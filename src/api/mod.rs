@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use crate::app::AppContext;
 use crate::domain::{
     Item, ItemMedia, Location, MoveItemInput, Movement, NewItem, NewItemMediaInput, NewLocation,
-    UpdateItemInput,
+    NewTrip, NewTripItem, Trip, TripItem, UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
 };
 use crate::error::AppError;
 
@@ -48,8 +48,18 @@ struct LocationsListResponse {
 }
 
 #[derive(Debug, Serialize)]
+struct TripsListResponse {
+    trips: Vec<TripResponse>,
+}
+
+#[derive(Debug, Serialize)]
 struct ItemMediaListResponse {
     media: Vec<ItemMediaResponse>,
+}
+
+#[derive(Debug, Serialize)]
+struct TripItemsListResponse {
+    trip_items: Vec<TripItemResponse>,
 }
 
 #[derive(Debug, Serialize)]
@@ -106,6 +116,31 @@ struct MovementResponse {
 }
 
 #[derive(Debug, Serialize)]
+struct TripResponse {
+    id: String,
+    name: String,
+    destination: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    trip_type: Option<String>,
+    luggage_type: Option<String>,
+    notes: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Serialize)]
+struct TripItemResponse {
+    id: String,
+    trip_id: String,
+    item_id: String,
+    item_name: Option<String>,
+    planned_day: Option<String>,
+    status: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
 struct LocationResponse {
     id: String,
     name: String,
@@ -142,6 +177,17 @@ struct CreateLocationRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CreateTripRequest {
+    name: String,
+    destination: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    trip_type: Option<String>,
+    luggage_type: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct PatchItemRequest {
     name: Option<String>,
     category: Option<String>,
@@ -162,6 +208,32 @@ struct PatchItemRequest {
 struct MoveItemRequest {
     to_location_id: Option<String>,
     reason: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PatchTripRequest {
+    name: Option<String>,
+    destination: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    trip_type: Option<String>,
+    luggage_type: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateTripItemRequest {
+    item_id: String,
+    planned_day: Option<String>,
+    status: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PatchTripItemRequest {
+    planned_day: Option<String>,
+    status: Option<String>,
     notes: Option<String>,
 }
 
@@ -205,6 +277,19 @@ pub fn router(context: AppContext) -> Router {
             get(list_locations_handler).post(create_location_handler),
         )
         .route("/locations/{id}", get(get_location_handler))
+        .route("/trips", get(list_trips_handler).post(create_trip_handler))
+        .route(
+            "/trips/{id}",
+            get(get_trip_handler).patch(update_trip_handler),
+        )
+        .route(
+            "/trips/{id}/items",
+            get(list_trip_items_handler).post(add_trip_item_handler),
+        )
+        .route(
+            "/trips/{id}/items/{trip_item_id}",
+            axum::routing::patch(update_trip_item_handler).delete(delete_trip_item_handler),
+        )
         .with_state(ApiState { context })
 }
 
@@ -541,6 +626,180 @@ async fn get_location_handler(
     Ok(Json(LocationResponse::from(location)))
 }
 
+async fn list_trips_handler(
+    State(state): State<ApiState>,
+) -> Result<Json<TripsListResponse>, ApiError> {
+    let trips = state
+        .context
+        .service
+        .list_trips()
+        .await
+        .map_err(ApiError::from)?;
+
+    Ok(Json(TripsListResponse {
+        trips: trips.into_iter().map(TripResponse::from).collect(),
+    }))
+}
+
+async fn create_trip_handler(
+    State(state): State<ApiState>,
+    Json(request): Json<CreateTripRequest>,
+) -> Result<(StatusCode, Json<TripResponse>), ApiError> {
+    let trip = state
+        .context
+        .service
+        .create_trip(NewTrip {
+            name: request.name,
+            destination: request.destination,
+            start_date: request.start_date,
+            end_date: request.end_date,
+            trip_type: request.trip_type,
+            luggage_type: request.luggage_type,
+            notes: request.notes,
+        })
+        .await
+        .map_err(ApiError::from)?;
+
+    Ok((StatusCode::CREATED, Json(TripResponse::from(trip))))
+}
+
+async fn get_trip_handler(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+) -> Result<Json<TripResponse>, ApiError> {
+    let trip = state
+        .context
+        .service
+        .get_trip(&id)
+        .await
+        .map_err(ApiError::from)?
+        .ok_or_else(|| {
+            ApiError::not_found(
+                "TRIP_NOT_FOUND",
+                "Trip not found",
+                Some(json!({ "trip_id": id })),
+            )
+        })?;
+
+    Ok(Json(TripResponse::from(trip)))
+}
+
+async fn update_trip_handler(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+    Json(request): Json<PatchTripRequest>,
+) -> Result<Json<TripResponse>, ApiError> {
+    let existing = state
+        .context
+        .service
+        .get_trip(&id)
+        .await
+        .map_err(ApiError::from)?
+        .ok_or_else(|| {
+            ApiError::not_found(
+                "TRIP_NOT_FOUND",
+                "Trip not found",
+                Some(json!({ "trip_id": id.clone() })),
+            )
+        })?;
+
+    let updated = state
+        .context
+        .service
+        .update_trip(
+            &id,
+            UpdateTripInput {
+                name: request.name.unwrap_or(existing.name),
+                destination: request.destination.or(existing.destination),
+                start_date: request.start_date.or(existing.start_date),
+                end_date: request.end_date.or(existing.end_date),
+                trip_type: request.trip_type.or(existing.trip_type),
+                luggage_type: request.luggage_type.or(existing.luggage_type),
+                notes: request.notes.or(existing.notes),
+            },
+        )
+        .await
+        .map_err(ApiError::from)?;
+
+    Ok(Json(TripResponse::from(updated)))
+}
+
+async fn list_trip_items_handler(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+) -> Result<Json<TripItemsListResponse>, ApiError> {
+    let trip_items = state
+        .context
+        .service
+        .list_trip_items(&id)
+        .await
+        .map_err(trip_related_error(&id))?;
+
+    Ok(Json(TripItemsListResponse {
+        trip_items: trip_items.into_iter().map(TripItemResponse::from).collect(),
+    }))
+}
+
+async fn add_trip_item_handler(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+    Json(request): Json<CreateTripItemRequest>,
+) -> Result<(StatusCode, Json<TripItemResponse>), ApiError> {
+    let trip_item = state
+        .context
+        .service
+        .add_trip_item(
+            &id,
+            NewTripItem {
+                item_id: request.item_id,
+                planned_day: request.planned_day,
+                status: request.status,
+                notes: request.notes,
+            },
+        )
+        .await
+        .map_err(trip_related_error(&id))?;
+
+    Ok((StatusCode::CREATED, Json(TripItemResponse::from(trip_item))))
+}
+
+async fn update_trip_item_handler(
+    State(state): State<ApiState>,
+    Path((id, trip_item_id)): Path<(String, String)>,
+    Json(request): Json<PatchTripItemRequest>,
+) -> Result<Json<TripItemResponse>, ApiError> {
+    let trip_item = state
+        .context
+        .service
+        .update_trip_item(
+            &id,
+            &trip_item_id,
+            UpdateTripItemInput {
+                planned_day: request.planned_day,
+                status: request.status,
+                notes: request.notes,
+            },
+        )
+        .await
+        .map_err(trip_related_error(&id))?;
+
+    Ok(Json(TripItemResponse::from(trip_item)))
+}
+
+async fn delete_trip_item_handler(
+    State(state): State<ApiState>,
+    Path((id, trip_item_id)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+    state
+        .context
+        .service
+        .remove_trip_item(&id, &trip_item_id)
+        .await
+        .map_err(trip_related_error(&id))?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 impl ItemResponse {
     fn from_domain(item: Item) -> Self {
         Self {
@@ -604,6 +863,37 @@ impl From<Movement> for MovementResponse {
     }
 }
 
+impl From<Trip> for TripResponse {
+    fn from(value: Trip) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
+            destination: value.destination,
+            start_date: value.start_date,
+            end_date: value.end_date,
+            trip_type: value.trip_type,
+            luggage_type: value.luggage_type,
+            notes: value.notes,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+impl From<TripItem> for TripItemResponse {
+    fn from(value: TripItem) -> Self {
+        Self {
+            id: value.id,
+            trip_id: value.trip_id,
+            item_id: value.item_id,
+            item_name: value.item_name,
+            planned_day: value.planned_day,
+            status: value.status,
+            notes: value.notes,
+        }
+    }
+}
+
 impl From<Location> for LocationResponse {
     fn from(value: Location) -> Self {
         Self {
@@ -654,6 +944,21 @@ fn item_related_error(item_id: &str) -> impl Fn(AppError) -> ApiError + '_ {
                 "ITEM_NOT_FOUND",
                 "Item not found",
                 Some(json!({ "item_id": item_id })),
+            )
+        }
+        other => ApiError::from(other),
+    }
+}
+
+fn trip_related_error(trip_id: &str) -> impl Fn(AppError) -> ApiError + '_ {
+    move |error| match error {
+        AppError::InvalidArgument(message)
+            if message.contains("trip `") && message.contains("does not exist") =>
+        {
+            ApiError::not_found(
+                "TRIP_NOT_FOUND",
+                "Trip not found",
+                Some(json!({ "trip_id": trip_id })),
             )
         }
         other => ApiError::from(other),
@@ -1090,6 +1395,133 @@ mod tests {
         assert_eq!(get_response.status(), StatusCode::OK);
         let get_body = to_json(get_response.into_body()).await;
         assert_eq!(get_body["id"], location_id);
+    }
+
+    #[tokio::test]
+    async fn trip_routes_support_create_get_patch_and_trip_items() {
+        let sandbox = ApiSandbox::new();
+        let app = router(sandbox.context().await);
+
+        let created_item = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/items")
+                    .header("content-type", "application/json")
+                    .body(Body::from(json!({ "name": "Merino Tee" }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .expect("create item response");
+        let item_body = to_json(created_item.into_body()).await;
+        let item_id = item_body["id"].as_str().unwrap().to_string();
+
+        let created_trip = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/trips")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "name": "Rome Weekend", "destination": "Rome" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("create trip response");
+        assert_eq!(created_trip.status(), StatusCode::CREATED);
+        let trip_body = to_json(created_trip.into_body()).await;
+        let trip_id = trip_body["id"].as_str().unwrap().to_string();
+
+        let patched_trip = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/trips/{trip_id}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "luggage_type": "carry-on", "notes": "Two nights" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("patch trip response");
+        assert_eq!(patched_trip.status(), StatusCode::OK);
+        let patched_trip_body = to_json(patched_trip.into_body()).await;
+        assert_eq!(patched_trip_body["luggage_type"], "carry-on");
+
+        let added_trip_item = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/trips/{trip_id}/items"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "item_id": item_id,
+                            "planned_day": "day-1",
+                            "status": "planned"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("add trip item response");
+        assert_eq!(added_trip_item.status(), StatusCode::CREATED);
+        let trip_item_body = to_json(added_trip_item.into_body()).await;
+        let trip_item_id = trip_item_body["id"].as_str().unwrap().to_string();
+
+        let updated_trip_item = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/trips/{trip_id}/items/{trip_item_id}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "status": "packed", "notes": "Packed in top section" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("patch trip item response");
+        assert_eq!(updated_trip_item.status(), StatusCode::OK);
+        let updated_trip_item_body = to_json(updated_trip_item.into_body()).await;
+        assert_eq!(updated_trip_item_body["status"], "packed");
+
+        let trip_items = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/trips/{trip_id}/items"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("list trip items response");
+        assert_eq!(trip_items.status(), StatusCode::OK);
+        let trip_items_body = to_json(trip_items.into_body()).await;
+        assert_eq!(
+            trip_items_body["trip_items"][0]["notes"],
+            "Packed in top section"
+        );
+
+        let deleted = app
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(format!("/trips/{trip_id}/items/{trip_item_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("delete trip item response");
+        assert_eq!(deleted.status(), StatusCode::NO_CONTENT);
     }
 
     #[tokio::test]

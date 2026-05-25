@@ -1,4 +1,6 @@
 use askama::Template;
+use std::collections::{HashMap, HashSet};
+
 use axum::Router;
 use axum::extract::{Form, Multipart, Path, State};
 use axum::http::{StatusCode, header};
@@ -11,7 +13,8 @@ use tokio::net::TcpListener;
 use crate::api;
 use crate::app::{self, AppContext};
 use crate::domain::{
-    HealthSnapshot, Item, ItemMedia, Location, NewItem, NewItemMediaInput, Trip, UpdateItemInput,
+    HealthSnapshot, Item, ItemMedia, Location, Movement, NewItem, NewItemMediaInput, NewLocation,
+    Trip, UpdateItemInput,
 };
 use crate::error::{AppError, AppResult};
 use crate::infra::MediaStorage;
@@ -33,6 +36,29 @@ struct ListEntry {
     title: String,
     subtitle: String,
     meta: String,
+}
+
+#[derive(Debug, Clone)]
+struct LocationOption {
+    id: String,
+    label: String,
+}
+
+#[derive(Debug, Clone)]
+struct LocationRow {
+    id: String,
+    path: String,
+    location_type: String,
+    parent: String,
+}
+
+#[derive(Debug, Clone)]
+struct MovementView {
+    moved_at: String,
+    from_location: String,
+    to_location: String,
+    reason: String,
+    notes: String,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +91,7 @@ struct ItemDetailView {
     name: String,
     edit_url: String,
     upload_url: String,
+    move_url: String,
 }
 
 #[derive(Debug, Clone)]
@@ -80,7 +107,6 @@ struct ItemFormView {
     season: String,
     formality: String,
     status: String,
-    current_location_id: String,
     notes: String,
 }
 
@@ -101,12 +127,28 @@ struct ItemFormData {
     notes: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct LocationFormData {
+    name: String,
+    location_type: String,
+    parent_id: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MoveItemFormData {
+    to_location_id: Option<String>,
+    reason: Option<String>,
+    notes: Option<String>,
+}
+
 #[derive(Template)]
 #[template(path = "home.html")]
 struct HomeTemplate {
     page_title: &'static str,
     nav_home_active: bool,
     nav_items_active: bool,
+    nav_locations_active: bool,
     nav_status_active: bool,
     data_dir: String,
     local_url: String,
@@ -126,6 +168,7 @@ struct StatusTemplate {
     page_title: &'static str,
     nav_home_active: bool,
     nav_items_active: bool,
+    nav_locations_active: bool,
     nav_status_active: bool,
     data_dir: String,
     bind_url: String,
@@ -142,6 +185,7 @@ struct ItemsTemplate {
     page_title: &'static str,
     nav_home_active: bool,
     nav_items_active: bool,
+    nav_locations_active: bool,
     nav_status_active: bool,
     data_dir: String,
     has_items: bool,
@@ -154,6 +198,7 @@ struct ItemFormTemplate {
     page_title: &'static str,
     nav_home_active: bool,
     nav_items_active: bool,
+    nav_locations_active: bool,
     nav_status_active: bool,
     data_dir: String,
     heading: &'static str,
@@ -168,12 +213,31 @@ struct ItemDetailTemplate {
     page_title: String,
     nav_home_active: bool,
     nav_items_active: bool,
+    nav_locations_active: bool,
     nav_status_active: bool,
     data_dir: String,
     item: ItemDetailView,
     fields: Vec<ItemField>,
+    current_location: String,
+    has_movements: bool,
+    movements: Vec<MovementView>,
+    location_options: Vec<LocationOption>,
     has_media: bool,
     media: Vec<MediaView>,
+}
+
+#[derive(Template)]
+#[template(path = "locations.html")]
+struct LocationsTemplate {
+    page_title: &'static str,
+    nav_home_active: bool,
+    nav_items_active: bool,
+    nav_locations_active: bool,
+    nav_status_active: bool,
+    data_dir: String,
+    has_locations: bool,
+    locations: Vec<LocationRow>,
+    parent_options: Vec<LocationOption>,
 }
 
 pub async fn serve(context: AppContext) -> AppResult<()> {
@@ -211,11 +275,16 @@ fn router(context: AppContext) -> Router {
         .route("/items", get(items_list_handler).post(item_create_handler))
         .route("/items/new", get(item_new_handler))
         .route("/items/{id}", get(item_detail_handler))
+        .route("/items/{id}/move", post(item_move_handler))
         .route(
             "/items/{id}/edit",
             get(item_edit_handler).post(item_update_handler),
         )
         .route("/items/{id}/media", post(item_media_upload_handler))
+        .route(
+            "/locations",
+            get(locations_handler).post(location_create_handler),
+        )
         .route("/status", get(status_handler))
         .route("/assets/app.css", get(stylesheet_handler))
         .route("/media/{*path}", get(media_file_handler))
@@ -255,6 +324,7 @@ async fn home_handler(State(state): State<WebState>) -> Result<Html<String>, Sta
         page_title: "Dashboard",
         nav_home_active: true,
         nav_items_active: false,
+        nav_locations_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         local_url: state.context.config.local_url(),
@@ -314,6 +384,7 @@ async fn items_list_handler(State(state): State<WebState>) -> Result<Html<String
         page_title: "Items",
         nav_home_active: false,
         nav_items_active: true,
+        nav_locations_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         has_items: !items.is_empty(),
@@ -339,6 +410,7 @@ async fn item_new_handler(State(state): State<WebState>) -> Result<Html<String>,
         page_title: "New Item",
         nav_home_active: false,
         nav_items_active: true,
+        nav_locations_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         heading: "Create Item",
@@ -395,11 +467,25 @@ async fn item_detail_handler(
         .list_item_media(&id)
         .await
         .map_err(internal_error_status)?;
+    let locations = state
+        .context
+        .service
+        .list_locations()
+        .await
+        .map_err(internal_error_status)?;
+    let movements = state
+        .context
+        .service
+        .get_item_movements(&id)
+        .await
+        .map_err(internal_error_status)?;
+    let location_paths = build_location_path_map(&locations);
 
     let template = ItemDetailTemplate {
         page_title: format!("Item · {}", item.name),
         nav_home_active: false,
         nav_items_active: true,
+        nav_locations_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         item: ItemDetailView {
@@ -407,8 +493,20 @@ async fn item_detail_handler(
             name: item.name.clone(),
             edit_url: format!("/items/{}/edit", item.id),
             upload_url: format!("/items/{}/media", item.id),
+            move_url: format!("/items/{}/move", item.id),
         },
         fields: item_fields(&item),
+        current_location: item
+            .current_location_id
+            .as_deref()
+            .and_then(|location_id| location_paths.get(location_id).cloned())
+            .unwrap_or_else(|| "Not assigned".to_string()),
+        has_movements: !movements.is_empty(),
+        movements: movements
+            .into_iter()
+            .map(|movement| movement_view(movement, &location_paths))
+            .collect(),
+        location_options: location_options(&locations),
         has_media: !media.is_empty(),
         media: media.into_iter().map(media_view).collect(),
     };
@@ -432,6 +530,7 @@ async fn item_edit_handler(
         page_title: "Edit Item",
         nav_home_active: false,
         nav_items_active: true,
+        nav_locations_active: false,
         nav_status_active: false,
         data_dir: state.context.layout.root.display().to_string(),
         heading: "Edit Item",
@@ -448,6 +547,14 @@ async fn item_update_handler(
     Path(id): Path<String>,
     Form(form): Form<ItemFormData>,
 ) -> Result<Redirect, StatusCode> {
+    let existing = state
+        .context
+        .service
+        .get_item(&id)
+        .await
+        .map_err(internal_error_status)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
     state
         .context
         .service
@@ -465,7 +572,7 @@ async fn item_update_handler(
                 season: form.season,
                 formality: form.formality,
                 status: form.status,
-                current_location_id: form.current_location_id,
+                current_location_id: existing.current_location_id,
                 notes: form.notes,
             },
         )
@@ -533,6 +640,86 @@ async fn item_media_upload_handler(
     Ok(Redirect::to(&format!("/items/{id}")))
 }
 
+async fn item_move_handler(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    Form(form): Form<MoveItemFormData>,
+) -> Result<Redirect, StatusCode> {
+    state
+        .context
+        .service
+        .move_item(
+            &id,
+            crate::domain::MoveItemInput {
+                to_location_id: form.to_location_id,
+                reason: form.reason,
+                notes: form.notes,
+            },
+        )
+        .await
+        .map_err(internal_error_status)?;
+
+    Ok(Redirect::to(&format!("/items/{id}")))
+}
+
+async fn locations_handler(State(state): State<WebState>) -> Result<Html<String>, StatusCode> {
+    let locations = state
+        .context
+        .service
+        .list_locations()
+        .await
+        .map_err(internal_error_status)?;
+    let location_paths = build_location_path_map(&locations);
+
+    let template = LocationsTemplate {
+        page_title: "Locations",
+        nav_home_active: false,
+        nav_items_active: false,
+        nav_locations_active: true,
+        nav_status_active: false,
+        data_dir: state.context.layout.root.display().to_string(),
+        has_locations: !locations.is_empty(),
+        locations: locations
+            .iter()
+            .map(|location| LocationRow {
+                id: location.id.clone(),
+                path: location_paths
+                    .get(&location.id)
+                    .cloned()
+                    .unwrap_or_else(|| location.name.clone()),
+                location_type: location.location_type.clone(),
+                parent: location
+                    .parent_id
+                    .as_deref()
+                    .and_then(|parent_id| location_paths.get(parent_id).cloned())
+                    .unwrap_or_else(|| "Top-level".to_string()),
+            })
+            .collect(),
+        parent_options: location_options(&locations),
+    };
+
+    render_template(&template)
+}
+
+async fn location_create_handler(
+    State(state): State<WebState>,
+    Form(form): Form<LocationFormData>,
+) -> Result<Redirect, StatusCode> {
+    state
+        .context
+        .service
+        .create_location(NewLocation {
+            name: form.name,
+            location_type: form.location_type,
+            parent_id: form.parent_id,
+            notes: form.notes,
+        })
+        .await
+        .map_err(internal_error_status)?;
+
+    Ok(Redirect::to("/locations"))
+}
+
 async fn status_handler(State(state): State<WebState>) -> Result<Html<String>, StatusCode> {
     let health = state
         .context
@@ -546,6 +733,7 @@ async fn status_handler(State(state): State<WebState>) -> Result<Html<String>, S
         page_title: "System Status",
         nav_home_active: false,
         nav_items_active: false,
+        nav_locations_active: false,
         nav_status_active: true,
         data_dir: state.context.layout.root.display().to_string(),
         bind_url: state.context.config.bind_url(),
@@ -653,7 +841,6 @@ fn item_fields(item: &Item) -> Vec<ItemField> {
         field("Season", item.season.as_deref()),
         field("Formality", item.formality.as_deref()),
         field("Status", item.status.as_deref()),
-        field("Current location", item.current_location_id.as_deref()),
         field("Notes", item.notes.as_deref()),
         ItemField {
             label: "Created",
@@ -690,8 +877,92 @@ fn item_form_view(item: &Item) -> ItemFormView {
         season: item.season.clone().unwrap_or_default(),
         formality: item.formality.clone().unwrap_or_default(),
         status: item.status.clone().unwrap_or_default(),
-        current_location_id: item.current_location_id.clone().unwrap_or_default(),
         notes: item.notes.clone().unwrap_or_default(),
+    }
+}
+
+fn location_options(locations: &[Location]) -> Vec<LocationOption> {
+    let paths = build_location_path_map(locations);
+    locations
+        .iter()
+        .map(|location| LocationOption {
+            id: location.id.clone(),
+            label: paths
+                .get(&location.id)
+                .cloned()
+                .unwrap_or_else(|| location.name.clone()),
+        })
+        .collect()
+}
+
+fn build_location_path_map(locations: &[Location]) -> HashMap<String, String> {
+    let by_id: HashMap<&str, &Location> = locations
+        .iter()
+        .map(|location| (location.id.as_str(), location))
+        .collect();
+    let mut cache = HashMap::new();
+
+    for location in locations {
+        let path = build_location_path(
+            location.id.as_str(),
+            &by_id,
+            &mut cache,
+            &mut HashSet::new(),
+        );
+        cache.insert(location.id.clone(), path);
+    }
+
+    cache
+}
+
+fn build_location_path(
+    location_id: &str,
+    by_id: &HashMap<&str, &Location>,
+    cache: &mut HashMap<String, String>,
+    visiting: &mut HashSet<String>,
+) -> String {
+    if let Some(existing) = cache.get(location_id) {
+        return existing.clone();
+    }
+
+    if !visiting.insert(location_id.to_string()) {
+        return location_id.to_string();
+    }
+
+    let Some(location) = by_id.get(location_id).copied() else {
+        return location_id.to_string();
+    };
+
+    let path = match location.parent_id.as_deref() {
+        Some(parent_id) => {
+            let parent_path = build_location_path(parent_id, by_id, cache, visiting);
+            format!("{parent_path} > {}", location.name)
+        }
+        None => location.name.clone(),
+    };
+
+    visiting.remove(location_id);
+    cache.insert(location_id.to_string(), path.clone());
+    path
+}
+
+fn movement_view(movement: Movement, location_paths: &HashMap<String, String>) -> MovementView {
+    MovementView {
+        moved_at: movement.moved_at,
+        from_location: movement
+            .from_location_id
+            .as_deref()
+            .and_then(|id| location_paths.get(id).cloned())
+            .unwrap_or_else(|| "Unassigned".to_string()),
+        to_location: movement
+            .to_location_id
+            .as_deref()
+            .and_then(|id| location_paths.get(id).cloned())
+            .unwrap_or_else(|| "Unassigned".to_string()),
+        reason: movement
+            .reason
+            .unwrap_or_else(|| "No reason recorded".to_string()),
+        notes: movement.notes.unwrap_or_default(),
     }
 }
 
@@ -708,7 +979,6 @@ fn empty_item_form() -> ItemFormView {
         season: String::new(),
         formality: String::new(),
         status: String::new(),
-        current_location_id: String::new(),
         notes: String::new(),
     }
 }
@@ -865,6 +1135,121 @@ mod tests {
         assert!(html.contains("Travel Sweater"));
         assert!(html.contains("Front view"));
         assert!(html.contains("Media Gallery"));
+    }
+
+    #[tokio::test]
+    async fn locations_page_renders_nested_paths() {
+        let sandbox = WebSandbox::new();
+        let context = sandbox.context().await;
+        let root = context
+            .service
+            .create_location(NewLocation {
+                name: "Treviso House".to_string(),
+                location_type: "House".to_string(),
+                parent_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create root location");
+        context
+            .service
+            .create_location(NewLocation {
+                name: "Bedroom Closet".to_string(),
+                location_type: "Closet".to_string(),
+                parent_id: Some(root.id),
+                notes: None,
+            })
+            .await
+            .expect("create nested location");
+
+        let app = router(context);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/locations")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("locations route response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let html = String::from_utf8(body.to_vec()).expect("valid utf-8 html");
+
+        assert!(html.contains("Treviso House"));
+        assert!(html.contains("Bedroom Closet"));
+        assert!(html.contains("Top-level"));
+    }
+
+    #[tokio::test]
+    async fn item_detail_page_renders_movement_history() {
+        let sandbox = WebSandbox::new();
+        let context = sandbox.context().await;
+        let location = context
+            .service
+            .create_location(NewLocation {
+                name: "Suitcase".to_string(),
+                location_type: "Luggage".to_string(),
+                parent_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create location");
+        let item = context
+            .service
+            .create_item(NewItem {
+                name: "Travel Tee".to_string(),
+                category: None,
+                subcategory: None,
+                brand: None,
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: None,
+                formality: None,
+                status: None,
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create item");
+        context
+            .service
+            .move_item(
+                &item.id,
+                crate::domain::MoveItemInput {
+                    to_location_id: Some(location.id),
+                    reason: Some("packing".to_string()),
+                    notes: None,
+                },
+            )
+            .await
+            .expect("move item");
+
+        let app = router(context);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/items/{}", item.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("item detail response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let html = String::from_utf8(body.to_vec()).expect("valid utf-8 html");
+
+        assert!(html.contains("Movement History"));
+        assert!(html.contains("packing"));
+        assert!(html.contains("Suitcase"));
     }
 
     #[tokio::test]

@@ -1,20 +1,3 @@
-## SEC-009 - Hierarchical locations and movement history
-Objective:
-- Implement nested locations.
-- Allow assigning an item to a current location.
-- Record movement history when an item changes location.
-
-Acceptance criteria:
-- A user can create nested locations.
-- A user can assign an item to a location.
-- Moving an item records a Movement entry.
-- Item detail pages show current location and movement history.
-- Equivalent service behavior is available to API and MCP.
-- Tests exist for hierarchy and movement recording.
-
-Notes:
-- Robustness matters more than fancy visuals.
-
 ## SEC-010 - Trips and packing lists
 Objective:
 - Implement trip CRUD.

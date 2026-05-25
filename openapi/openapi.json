@@ -3,7 +3,7 @@
   "info": {
     "title": "MyWardrobeHelper API",
     "version": "0.1.0",
-    "description": "Local-first wardrobe management API foundation for health, server info, items, and locations."
+    "description": "Local-first wardrobe management API foundation for health, items, media, locations, and movement history."
   },
   "servers": [
     {
@@ -189,6 +189,102 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{id}/move": {
+      "post": {
+        "summary": "Move an item and record movement history",
+        "operationId": "moveItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded movement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Movement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{id}/movements": {
+      "get": {
+        "summary": "List item movement history",
+        "operationId": "listItemMovements",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Movement history for the requested item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementsListResponse"
                 }
               }
             }
@@ -452,6 +548,18 @@
           }
         }
       },
+      "MovementsListResponse": {
+        "type": "object",
+        "required": ["movements"],
+        "properties": {
+          "movements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Movement"
+            }
+          }
+        }
+      },
       "LocationsListResponse": {
         "type": "object",
         "required": ["locations"],
@@ -495,7 +603,14 @@
           "season": { "type": ["string", "null"] },
           "formality": { "type": ["string", "null"] },
           "status": { "type": ["string", "null"] },
-          "current_location_id": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "MoveItemRequest": {
+        "type": "object",
+        "properties": {
+          "to_location_id": { "type": ["string", "null"] },
+          "reason": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] }
         }
       },
@@ -571,6 +686,19 @@
           "caption": { "type": ["string", "null"] },
           "sort_order": { "type": "integer" },
           "created_at": { "type": "string" }
+        }
+      },
+      "Movement": {
+        "type": "object",
+        "required": ["id", "item_id", "moved_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "item_id": { "type": "string" },
+          "from_location_id": { "type": ["string", "null"] },
+          "to_location_id": { "type": ["string", "null"] },
+          "reason": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "moved_at": { "type": "string" }
         }
       },
       "ErrorEnvelope": {

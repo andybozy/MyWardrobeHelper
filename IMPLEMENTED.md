@@ -130,3 +130,20 @@ Acceptance criteria met:
 - Tests exist for core item persistence and media metadata logic.
 Notes:
 - Media paths remain relative to the configured data directory under `media/items/<item-id>/`.
+
+## SEC-009 - Hierarchical locations and movement history
+Completed: 2026-05-25
+Summary:
+- Added a dedicated locations page with nested parent selection and hierarchy rendering in the server-rendered UI.
+- Added dedicated item move flows in the web UI and JSON API so location changes always record movement history.
+- Added current-location and movement-history rendering to item detail pages using human-readable location paths.
+- Added tests and live smoke verification for nested locations, movement recording, and item movement history through the web and API surfaces.
+Acceptance criteria met:
+- A user can create nested locations.
+- A user can assign an item to a location.
+- Moving an item records a `Movement` entry.
+- Item detail pages show current location and movement history.
+- Equivalent service behavior is available to API and MCP.
+- Tests exist for hierarchy and movement recording.
+Notes:
+- Direct location changes are intentionally routed through the dedicated move endpoints to keep movement history trustworthy.

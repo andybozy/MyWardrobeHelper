@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Storage</p>
+        <h2>Locations</h2>
+        <p class="lede">Create nested storage locations and use them later when moving items through the wardrobe.</p>
+    </div>
+</section>
+
+<section class="panel-grid is-status">
+    <article class="panel">
+        <h3>Create Location</h3>
+        <form method="post" action="/locations" class="item-form">
+            <label>
+                <span>Name</span>
+                <input type="text" name="name" required>
+            </label>
+            <label>
+                <span>Type</span>
+                <input type="text" name="location_type" placeholder="Closet, Drawer, Shelf, Luggage" required>
+            </label>
+            <label>
+                <span>Parent</span>
+                <select name="parent_id">
+                    <option value="">Top-level</option>
+                    {% for option in parent_options %}
+                    <option value="{{ option.id }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>Notes</span>
+                <textarea name="notes" rows="4"></textarea>
+            </label>
+            <button type="submit">Create location</button>
+        </form>
+    </article>
+
+    <article class="panel wide-panel">
+        <h3>Location Hierarchy</h3>
+        {% if has_locations %}
+        <table class="checks-table">
+            <thead>
+            <tr>
+                <th>Path</th>
+                <th>Type</th>
+                <th>Parent</th>
+                <th>Id</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for location in locations %}
+            <tr>
+                <td>{{ location.path }}</td>
+                <td>{{ location.location_type }}</td>
+                <td>{{ location.parent }}</td>
+                <td><code>{{ location.id }}</code></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No locations exist yet.</p>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

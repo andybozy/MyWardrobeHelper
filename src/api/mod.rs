@@ -1,14 +1,15 @@
 use axum::extract::{Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::app::AppContext;
 use crate::domain::{
-    Item, ItemMedia, Location, NewItem, NewItemMediaInput, NewLocation, UpdateItemInput,
+    Item, ItemMedia, Location, MoveItemInput, Movement, NewItem, NewItemMediaInput, NewLocation,
+    UpdateItemInput,
 };
 use crate::error::AppError;
 
@@ -52,6 +53,11 @@ struct ItemMediaListResponse {
 }
 
 #[derive(Debug, Serialize)]
+struct MovementsListResponse {
+    movements: Vec<MovementResponse>,
+}
+
+#[derive(Debug, Serialize)]
 struct ItemResponse {
     id: String,
     name: String,
@@ -86,6 +92,17 @@ struct ItemMediaResponse {
     caption: Option<String>,
     sort_order: i64,
     created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+struct MovementResponse {
+    id: String,
+    item_id: String,
+    from_location_id: Option<String>,
+    to_location_id: Option<String>,
+    reason: Option<String>,
+    notes: Option<String>,
+    moved_at: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -141,6 +158,13 @@ struct PatchItemRequest {
     notes: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct MoveItemRequest {
+    to_location_id: Option<String>,
+    reason: Option<String>,
+    notes: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 struct ErrorEnvelope {
     error: ErrorBody,
@@ -170,6 +194,8 @@ pub fn router(context: AppContext) -> Router {
             "/items/{id}",
             get(get_item_handler).patch(update_item_handler),
         )
+        .route("/items/{id}/move", post(move_item_handler))
+        .route("/items/{id}/movements", get(list_item_movements_handler))
         .route(
             "/items/{id}/media",
             get(list_item_media_handler).post(upload_item_media_handler),
@@ -281,6 +307,14 @@ async fn update_item_handler(
     Path(id): Path<String>,
     Json(request): Json<PatchItemRequest>,
 ) -> Result<Json<ItemResponse>, ApiError> {
+    if request.current_location_id.is_some() {
+        return Err(ApiError::bad_request(
+            "USE_MOVE_ENDPOINT",
+            "Use POST /api/v1/items/:id/move to change an item's location.".to_string(),
+            Some(json!({ "item_id": id })),
+        ));
+    }
+
     let existing = state
         .context
         .service
@@ -320,6 +354,44 @@ async fn update_item_handler(
         .map_err(ApiError::from)?;
 
     Ok(Json(ItemResponse::from(updated)))
+}
+
+async fn move_item_handler(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+    Json(request): Json<MoveItemRequest>,
+) -> Result<Json<MovementResponse>, ApiError> {
+    let result = state
+        .context
+        .service
+        .move_item(
+            &id,
+            MoveItemInput {
+                to_location_id: request.to_location_id,
+                reason: request.reason,
+                notes: request.notes,
+            },
+        )
+        .await
+        .map_err(item_related_error(&id))?;
+
+    Ok(Json(MovementResponse::from(result.movement)))
+}
+
+async fn list_item_movements_handler(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+) -> Result<Json<MovementsListResponse>, ApiError> {
+    let movements = state
+        .context
+        .service
+        .get_item_movements(&id)
+        .await
+        .map_err(item_related_error(&id))?;
+
+    Ok(Json(MovementsListResponse {
+        movements: movements.into_iter().map(MovementResponse::from).collect(),
+    }))
 }
 
 async fn list_item_media_handler(
@@ -514,6 +586,20 @@ impl From<ItemMedia> for ItemMediaResponse {
             caption: value.caption,
             sort_order: value.sort_order,
             created_at: value.created_at,
+        }
+    }
+}
+
+impl From<Movement> for MovementResponse {
+    fn from(value: Movement) -> Self {
+        Self {
+            id: value.id,
+            item_id: value.item_id,
+            from_location_id: value.from_location_id,
+            to_location_id: value.to_location_id,
+            reason: value.reason,
+            notes: value.notes,
+            moved_at: value.moved_at,
         }
     }
 }
@@ -772,6 +858,116 @@ mod tests {
         let patched_body = to_json(patched.into_body()).await;
         assert_eq!(patched_body["brand"], "Example");
         assert_eq!(patched_body["status"], "ready");
+    }
+
+    #[tokio::test]
+    async fn item_move_and_movement_routes_work() {
+        let sandbox = ApiSandbox::new();
+        let app = router(sandbox.context().await);
+
+        let created_item = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/items")
+                    .header("content-type", "application/json")
+                    .body(Body::from(json!({ "name": "Travel Coat" }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .expect("create item response");
+        let item_body = to_json(created_item.into_body()).await;
+        let item_id = item_body["id"].as_str().unwrap().to_string();
+
+        let created_location = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/locations")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "name": "Suitcase", "location_type": "Luggage" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("create location response");
+        let location_body = to_json(created_location.into_body()).await;
+        let location_id = location_body["id"].as_str().unwrap().to_string();
+
+        let moved = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/items/{item_id}/move"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "to_location_id": location_id, "reason": "packing" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("move item response");
+
+        assert_eq!(moved.status(), StatusCode::OK);
+        let moved_body = to_json(moved.into_body()).await;
+        assert_eq!(moved_body["reason"], "packing");
+
+        let movements = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/items/{item_id}/movements"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("list movements response");
+
+        assert_eq!(movements.status(), StatusCode::OK);
+        let movements_body = to_json(movements.into_body()).await;
+        assert_eq!(movements_body["movements"][0]["reason"], "packing");
+    }
+
+    #[tokio::test]
+    async fn item_patch_rejects_direct_location_change() {
+        let sandbox = ApiSandbox::new();
+        let app = router(sandbox.context().await);
+
+        let created_item = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/items")
+                    .header("content-type", "application/json")
+                    .body(Body::from(json!({ "name": "Travel Coat" }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .expect("create item response");
+        let item_body = to_json(created_item.into_body()).await;
+        let item_id = item_body["id"].as_str().unwrap().to_string();
+
+        let rejected = app
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/items/{item_id}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "current_location_id": "location-123" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .expect("patch response");
+
+        assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
+        let body = to_json(rejected.into_body()).await;
+        assert_eq!(body["error"]["code"], "USE_MOVE_ENDPOINT");
     }
 
     #[tokio::test]

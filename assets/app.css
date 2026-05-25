@@ -336,7 +336,9 @@ a {
 }
 
 .item-form input,
+.item-form select,
 .item-form textarea,
+.upload-form select,
 .upload-form input {
     width: 100%;
     padding: 0.8rem 0.9rem;

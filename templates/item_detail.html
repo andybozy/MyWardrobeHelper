@@ -17,6 +17,7 @@
 <section class="panel-grid is-status">
     <article class="panel">
         <h3>Item Metadata</h3>
+        <p class="empty-state">Current location: <strong>{{ current_location }}</strong></p>
         <dl class="key-value-list">
             {% for field in fields %}
             <div>
@@ -28,6 +29,56 @@
     </article>
 
     <article class="panel wide-panel">
+        <h3>Move Item</h3>
+        <form method="post" action="{{ item.move_url }}" class="item-form">
+            <label>
+                <span>Destination</span>
+                <select name="to_location_id">
+                    <option value="">Unassigned</option>
+                    {% for option in location_options %}
+                    <option value="{{ option.id }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>Reason</span>
+                <input type="text" name="reason" placeholder="packing, laundry, storage rotation">
+            </label>
+            <label class="wide-field">
+                <span>Notes</span>
+                <textarea name="notes" rows="3"></textarea>
+            </label>
+            <button type="submit">Move item</button>
+        </form>
+
+        <h3>Movement History</h3>
+        {% if has_movements %}
+        <table class="checks-table">
+            <thead>
+            <tr>
+                <th>Moved at</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Reason</th>
+                <th>Notes</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for movement in movements %}
+            <tr>
+                <td>{{ movement.moved_at }}</td>
+                <td>{{ movement.from_location }}</td>
+                <td>{{ movement.to_location }}</td>
+                <td>{{ movement.reason }}</td>
+                <td>{{ movement.notes }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No movement history has been recorded yet.</p>
+        {% endif %}
+
         <h3>Media Gallery</h3>
         {% if has_media %}
         <div class="media-grid">

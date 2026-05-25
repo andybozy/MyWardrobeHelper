@@ -6,11 +6,12 @@ The JSON API foundation is available under `/api/v1`. It currently covers:
 
 - health and runtime info
 - item list/create/get/update
+- item move and movement history
 - item media list/upload
 - location list/create/get
 - a stable JSON error envelope
 
-Trip routes, movement routes, item deletion, and media deletion remain future sections.
+Trip routes, item deletion, and media deletion remain future sections.
 
 ## Versioning
 
@@ -32,6 +33,8 @@ Items:
 - `POST /api/v1/items`
 - `GET /api/v1/items/:id`
 - `PATCH /api/v1/items/:id`
+- `POST /api/v1/items/:id/move`
+- `GET /api/v1/items/:id/movements`
 
 Item media:
 
@@ -43,6 +46,8 @@ Locations:
 - `GET /api/v1/locations`
 - `POST /api/v1/locations`
 - `GET /api/v1/locations/:id`
+
+Nested locations are created by passing `parent_id` when creating a location.
 
 ## Response shape
 
@@ -156,6 +161,49 @@ Response: `200 OK`
 }
 ```
 
+`POST /api/v1/items/:id/move`
+
+Request:
+
+```json
+{
+  "to_location_id": "location-1779735257711-0",
+  "reason": "packing"
+}
+```
+
+Response: `200 OK`
+
+```json
+{
+  "id": "movement-1779735267045-0",
+  "item_id": "item-1779735257714-1",
+  "from_location_id": null,
+  "to_location_id": "location-1779735257711-0",
+  "reason": "packing",
+  "notes": null,
+  "moved_at": "2026-05-25 18:54:27"
+}
+```
+
+`GET /api/v1/items/:id/movements`
+
+```json
+{
+  "movements": [
+    {
+      "id": "movement-1779735267045-0",
+      "item_id": "item-1779735257714-1",
+      "from_location_id": null,
+      "to_location_id": "location-1779735257711-0",
+      "reason": "packing",
+      "notes": null,
+      "moved_at": "2026-05-25 18:54:27"
+    }
+  ]
+}
+```
+
 ## Error contract
 
 Every API error uses the same top-level envelope:
@@ -175,6 +223,7 @@ Every API error uses the same top-level envelope:
 Current error codes include:
 
 - `INVALID_REQUEST`
+- `USE_MOVE_ENDPOINT`
 - `INVALID_MULTIPART`
 - `NO_MEDIA_FILES`
 - `ITEM_NOT_FOUND`

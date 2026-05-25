@@ -110,16 +110,14 @@ impl WardrobeService {
 
         let normalized = NewItemMediaInput {
             media_kind: media_kind_from_mime(&input.mime_type)?.to_string(),
-            original_filename: input
-                .original_filename
-                .and_then(|value| {
-                    let trimmed = value.trim();
-                    if trimmed.is_empty() {
-                        None
-                    } else {
-                        Some(trimmed.to_string())
-                    }
-                }),
+            original_filename: input.original_filename.and_then(|value| {
+                let trimmed = value.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            }),
             mime_type: input.mime_type.trim().to_string(),
             caption: normalize_optional(input.caption),
             bytes: input.bytes,

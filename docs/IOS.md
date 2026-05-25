@@ -26,6 +26,12 @@ The repository contains a native SwiftUI companion app at:
 - the item detail screen refreshes backend media metadata after upload
 - visible upload progress is shown while files are sent
 
+`SEC-015` is now in place:
+
+- the app has a `TagScannerService` abstraction
+- the app includes a backend-backed tag resolution screen
+- the scanner path is explicitly present but honestly reports that live scanning is not implemented yet
+
 Richer item editing remains the next section.
 
 ## What the app does now
@@ -42,6 +48,8 @@ The current app focuses on local-network connection setup:
 - create a basic item record from iOS
 - upload one or more images/videos from the photo library to an item
 - show uploaded media entries after success
+- resolve backend tags manually from iOS
+- expose a future scanner boundary without pretending NFC already works
 
 The current Swift files are organized under:
 
@@ -120,4 +128,4 @@ Cheap validation used here:
 ## Next steps
 
 - richer item editing on iOS beyond the current basic create flow
-- `SEC-015`: future tag-scanning groundwork
+- real NFC and/or QR scanning integration behind the existing scanner abstraction

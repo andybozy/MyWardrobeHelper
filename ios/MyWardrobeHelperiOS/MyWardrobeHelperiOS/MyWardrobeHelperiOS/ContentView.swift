@@ -21,6 +21,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("Items", systemImage: "tshirt")
                 }
+
+            TagsView(connectionViewModel: viewModel)
+                .tabItem {
+                    Label("Tags", systemImage: "tag")
+                }
         }
     }
 }

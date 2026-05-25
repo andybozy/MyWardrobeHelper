@@ -99,6 +99,32 @@ struct APIClient {
         return response.media
     }
 
+    func resolvePhysicalTag(
+        tagType: String,
+        externalIdentifier: String,
+        baseURL: URL
+    ) async throws -> ResolvedPhysicalTagResponse {
+        let bodyData: Data
+        do {
+            bodyData = try JSONEncoder().encode(
+                ResolvePhysicalTagRequest(
+                    tagType: tagType,
+                    externalIdentifier: externalIdentifier
+                )
+            )
+        } catch {
+            throw APIClientError.encoding(error)
+        }
+
+        let resolved: ResolvedPhysicalTagResponse = try await sendRequest(
+            pathSegments: ["api", "v1", "tags", "resolve"],
+            method: "POST",
+            bodyData: bodyData,
+            baseURL: baseURL
+        )
+        return resolved
+    }
+
     private func sendRequest<Response: Decodable>(
         pathSegments: [String],
         method: String = "GET",

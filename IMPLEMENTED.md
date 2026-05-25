@@ -229,3 +229,18 @@ Acceptance criteria met:
 - No fake “fully complete NFC support” claim is made.
 Notes:
 - The groundwork is intentionally backend-only here; iOS scanning integration remains the next dedicated section.
+
+## SEC-015 - iOS tag-scanning groundwork and future reader integration
+Completed: 2026-05-26
+Summary:
+- Added a `TagScannerService` abstraction to the iOS app.
+- Added a native SwiftUI tag tools screen that resolves tags against the backend API.
+- Added an explicit scanner placeholder path that reports live scanning as unavailable instead of faking NFC support.
+- Updated iOS and tag documentation to describe the current state honestly.
+Acceptance criteria met:
+- The iOS app has a clear abstraction for future scanning work.
+- `docs/IOS.md` and `docs/TAGS.md` describe the current status honestly.
+- No fake NFC support claim is made.
+- The groundwork is isolated cleanly enough to evolve without a rewrite.
+Notes:
+- The current iOS tag flow resolves tags manually against the backend; real NFC/QR scanning remains future work behind the same abstraction.

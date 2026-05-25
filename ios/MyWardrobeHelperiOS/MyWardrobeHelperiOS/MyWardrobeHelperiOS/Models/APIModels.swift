@@ -126,3 +126,47 @@ struct ItemMediaRecord: Codable, Equatable, Identifiable {
 struct ItemMediaListResponse: Decodable, Equatable {
     let media: [ItemMediaRecord]
 }
+
+struct PhysicalTagRecord: Codable, Equatable, Identifiable {
+    let id: String
+    let tagType: String
+    let externalIdentifier: String
+    let label: String?
+    let boundEntityType: String
+    let boundEntityID: String
+    let notes: String?
+    let createdAt: String
+    let updatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case tagType = "tag_type"
+        case externalIdentifier = "external_identifier"
+        case label
+        case boundEntityType = "bound_entity_type"
+        case boundEntityID = "bound_entity_id"
+        case notes
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct ResolvePhysicalTagRequest: Encodable, Equatable {
+    let tagType: String
+    let externalIdentifier: String
+
+    enum CodingKeys: String, CodingKey {
+        case tagType = "tag_type"
+        case externalIdentifier = "external_identifier"
+    }
+}
+
+struct ResolvedPhysicalTagResponse: Decodable, Equatable {
+    let tag: PhysicalTagRecord
+    let entityName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case tag
+        case entityName = "entity_name"
+    }
+}

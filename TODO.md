@@ -1,19 +1,3 @@
-## SEC-015 - iOS tag-scanning groundwork and future reader integration
-Objective:
-- Prepare the iOS app for future physical tag reading.
-- Add a clear scanner abstraction and feature boundary.
-- If feasible, add a first real scanner integration for one tag type without making the architecture messy.
-
-Acceptance criteria:
-- The iOS app has a clear abstraction such as TagScannerService.
-- docs/IOS.md and docs/TAGS.md describe the current status honestly.
-- If a first real scanner integration is added, it is documented and tested as practical.
-- If NFC is not fully implemented yet, the code and docs clearly say so.
-- The groundwork does not require a rewrite later.
-
-Notes:
-- NFC is the likely main future direction. QR/barcode may be a useful intermediate step.
-
 ## SEC-016 - Search, filters, and practical dashboard views
 Objective:
 - Add search and useful filters for items.

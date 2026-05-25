@@ -9,7 +9,11 @@ Backend groundwork is now implemented:
 - the backend can register a tag and resolve it by `(tag_type, external_identifier)`
 - the JSON API exposes list/create/get/resolve tag routes
 
-The iOS scanning side is still future work in `SEC-015`.
+The iOS groundwork is now in place in `SEC-015`:
+
+- the app has a `TagScannerService` abstraction
+- a tag tools screen can resolve tags against the backend
+- live scanner implementations are still intentionally absent
 
 ## Product direction
 
@@ -78,7 +82,7 @@ Example resolve response:
 
 ## Honest limitations
 
-- no iOS scanner integration yet
+- no live iOS scanner integration yet
 - no NFC write flow
 - no QR/barcode camera scanner yet
 - no tag editing or deletion API yet

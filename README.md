@@ -40,6 +40,7 @@ The repository now has its first backend lifecycle and browser UI layers:
 - The native iOS app can now list backend items, open item detail, and create a basic item record
 - The native iOS app can now upload images and videos from the photo library into backend item media
 - Physical tag registration and resolution groundwork now exists in the backend and API
+- The native iOS app now has a tag tools screen plus a scanner abstraction for future NFC/QR work
 - iOS companion app still exists as a native placeholder shell
 - The remaining API surface and iOS client work remain planned in `TODO.md`
 

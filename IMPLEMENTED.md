@@ -260,3 +260,18 @@ Acceptance criteria met:
 - Tests exist for search/filter behavior where practical.
 Notes:
 - Filtering is intentionally scoped to items for now; location and trip filtering can build on the same approach later.
+
+## SEC-017 - Backup, export, and data durability
+Completed: 2026-05-26
+Summary:
+- Replaced the placeholder export with a real structured JSON snapshot of wardrobe data.
+- Kept the SQLite backup flow simple and safe with timestamped database copies.
+- Added export-content test coverage so durability output includes real records instead of layout-only metadata.
+- Updated repository docs with a clearer recovery story for database backups, JSON exports, and media files on disk.
+Acceptance criteria met:
+- A backup command safely creates a database backup.
+- Export exists in JSON format with real wardrobe data.
+- `docs/CODEX_SETUP.md` and `README.md` explain backup/export behavior.
+- The repository now has a clear, documented durability and recovery story.
+Notes:
+- JSON exports include media metadata only; full recovery still needs the `media/items/` filesystem tree alongside the database backup.

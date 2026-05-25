@@ -42,6 +42,7 @@ The repository now has its first backend lifecycle and browser UI layers:
 - Physical tag registration and resolution groundwork now exists in the backend and API
 - The native iOS app now has a tag tools screen plus a scanner abstraction for future NFC/QR work
 - Shared item filtering and dashboard summaries now work across the backend, web UI, API, and MCP
+- Backup and structured JSON export now preserve real wardrobe data for recovery workflows
 - iOS companion app still exists as a native placeholder shell
 - The remaining API surface and iOS client work remain planned in `TODO.md`
 
@@ -75,8 +76,8 @@ Current command behavior:
 - `init` creates the external data directory layout, creates `wardrobe.sqlite3`, and runs SQLite migrations
 - `doctor` checks the resolved config, filesystem layout, writability, and database schema health
 - `serve` starts the local HTTP server, serves the browser UI and `/api/v1`, and prints the local and LAN URLs when relevant
-- `backup` copies the current database file into `backups/`
-- `export` writes a placeholder JSON export describing the runtime layout
+- `backup` copies the current SQLite database into `backups/`
+- `export` writes a structured JSON snapshot of items, media metadata, locations, movements, trips, trip items, and physical tags
 - `mcp serve` starts the embedded MCP server over STDIO
 
 ## Configuration
@@ -119,6 +120,13 @@ SQLite migrations live in `migrations/` and are applied during `init`. The curre
 - `trips`
 - `trip_items`
 - `physical_tags`
+
+## Durability and recovery
+
+- `cargo run -- backup` creates a timestamped copy of `wardrobe.sqlite3` under `backups/`
+- `cargo run -- export` creates a structured JSON snapshot under `exports/`
+- current JSON exports include media metadata but not the media file bytes themselves
+- media files stay on disk under `media/items/`, so a full manual backup should include both the SQLite backup and the media tree
 
 ## Checks
 

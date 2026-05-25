@@ -42,6 +42,8 @@ If your data directory is not `.data`, edit the `args` line in `.codex/config.to
 - Validate the local runtime state with `cargo run -- doctor`.
 - Inspect the local browser UI with `cargo run -- serve`.
 - Smoke the MCP transport with `cargo run -- mcp serve`.
+- Create a structured durability snapshot with `cargo run -- export`.
+- Create a SQLite backup with `cargo run -- backup`.
 - Inspect the current command surface with `cargo run -- help`.
 - Re-run `cargo run -- init` after pulling schema changes that add new migrations.
 - Review the next planned milestones in `TODO.md`.

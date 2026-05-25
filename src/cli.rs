@@ -242,14 +242,23 @@ async fn dispatch(cli: Cli) -> AppResult<()> {
                 report.backup_file.display()
             );
             println!("Media backup included: {}", report.media_included);
-            println!("Media files are not included in this SEC-003 backup placeholder.");
+            println!(
+                "Media files are not included in the SQLite backup file; back up media/items/ separately."
+            );
             Ok(())
         }
         Command::Export => {
             let report = app::export_layout(&cli.config).await?;
             println!(
-                "Wrote placeholder export to {}",
+                "Wrote structured export to {}",
                 report.export_file.display()
+            );
+            println!(
+                "Exported {} items, {} locations, {} trips, and {} physical tags.",
+                report.item_count,
+                report.location_count,
+                report.trip_count,
+                report.physical_tag_count
             );
             Ok(())
         }

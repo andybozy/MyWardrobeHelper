@@ -3,15 +3,15 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::Serialize;
+
 use crate::config::AppConfig;
 use crate::db;
+use crate::domain::{Item, ItemMedia, Location, Movement, PhysicalTag, Trip, TripItem};
 use crate::error::{AppError, AppResult, io_error, io_error_path};
 use crate::infra::MediaStorage;
 use crate::repositories::SqliteWardrobeRepository;
 use crate::services::WardrobeService;
-
-const PLACEHOLDER_EXPORT_NOTE: &str =
-    "Structured wardrobe export will arrive in SEC-017. This file records runtime layout only.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppLayout {
@@ -39,6 +39,10 @@ pub struct BackupReport {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportReport {
     pub export_file: PathBuf,
+    pub item_count: usize,
+    pub location_count: usize,
+    pub trip_count: usize,
+    pub physical_tag_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -370,45 +374,86 @@ pub async fn create_backup(config: &AppConfig) -> AppResult<BackupReport> {
 }
 
 pub async fn export_layout(config: &AppConfig) -> AppResult<ExportReport> {
-    let layout = AppLayout::from_data_dir(config.data_dir.clone());
-    layout.require_initialized()?;
-    ensure_schema_ready(&layout).await?;
+    let context = open_context(config.clone()).await?;
+    let layout = context.layout.clone();
 
     let export_file = layout
         .exports_root
-        .join(format!("wardrobe-layout-{}.json", unix_timestamp_millis()));
-    let payload = build_export_payload(&layout);
+        .join(format!("wardrobe-export-{}.json", unix_timestamp_millis()));
+    let export_bundle = build_export_bundle(&context).await?;
+    let payload = serde_json::to_vec_pretty(&export_bundle)
+        .map_err(|error| AppError::config(format!("serialize export JSON: {error}")))?;
     fs::write(&export_file, payload).map_err(io_error(format!(
         "write export file {}",
         export_file.display()
     )))?;
 
-    Ok(ExportReport { export_file })
+    Ok(ExportReport {
+        export_file,
+        item_count: export_bundle.items.len(),
+        location_count: export_bundle.locations.len(),
+        trip_count: export_bundle.trips.len(),
+        physical_tag_count: export_bundle.physical_tags.len(),
+    })
 }
 
-fn build_export_payload(layout: &AppLayout) -> String {
-    let generated_at = unix_timestamp_secs();
+#[derive(Debug, Serialize)]
+struct ExportBundle {
+    generated_at_unix_seconds: u64,
+    data_dir: String,
+    database_file: String,
+    media_root: String,
+    notes: ExportNotes,
+    items: Vec<Item>,
+    item_media: Vec<ItemMedia>,
+    locations: Vec<Location>,
+    movements: Vec<Movement>,
+    trips: Vec<Trip>,
+    trip_items: Vec<TripItem>,
+    physical_tags: Vec<PhysicalTag>,
+}
 
-    format!(
-        concat!(
-            "{{\n",
-            "  \"generated_at_unix_seconds\": {generated_at},\n",
-            "  \"data_dir\": \"{data_dir}\",\n",
-            "  \"database_file\": \"{database_file}\",\n",
-            "  \"item_media_root\": \"{item_media_root}\",\n",
-            "  \"backups_root\": \"{backups_root}\",\n",
-            "  \"exports_root\": \"{exports_root}\",\n",
-            "  \"note\": \"{note}\"\n",
-            "}}\n"
-        ),
-        generated_at = generated_at,
-        data_dir = json_escape_path(&layout.root),
-        database_file = json_escape_path(&layout.database_file),
-        item_media_root = json_escape_path(&layout.item_media_root),
-        backups_root = json_escape_path(&layout.backups_root),
-        exports_root = json_escape_path(&layout.exports_root),
-        note = json_escape(PLACEHOLDER_EXPORT_NOTE),
-    )
+#[derive(Debug, Serialize)]
+struct ExportNotes {
+    media_files_included: bool,
+    media_files_description: &'static str,
+}
+
+async fn build_export_bundle(context: &AppContext) -> AppResult<ExportBundle> {
+    let items = context.service.list_items().await?;
+    let locations = context.service.list_locations().await?;
+    let trips = context.service.list_trips().await?;
+    let physical_tags = context.service.list_physical_tags().await?;
+
+    let mut item_media = Vec::new();
+    let mut movements = Vec::new();
+    for item in &items {
+        item_media.extend(context.service.list_item_media(&item.id).await?);
+        movements.extend(context.service.get_item_movements(&item.id).await?);
+    }
+
+    let mut trip_items = Vec::new();
+    for trip in &trips {
+        trip_items.extend(context.service.list_trip_items(&trip.id).await?);
+    }
+
+    Ok(ExportBundle {
+        generated_at_unix_seconds: unix_timestamp_secs(),
+        data_dir: context.layout.root.display().to_string(),
+        database_file: context.layout.database_file.display().to_string(),
+        media_root: context.layout.media_root.display().to_string(),
+        notes: ExportNotes {
+            media_files_included: false,
+            media_files_description: "This export includes media metadata only. Media files remain on disk under media/items/.",
+        },
+        items,
+        item_media,
+        locations,
+        movements,
+        trips,
+        trip_items,
+        physical_tags,
+    })
 }
 
 fn check_file(
@@ -494,27 +539,6 @@ fn fail(label: &'static str, message: String) -> DoctorCheck {
         label,
         message,
     }
-}
-
-fn json_escape_path(path: &Path) -> String {
-    json_escape(&path.display().to_string())
-}
-
-fn json_escape(input: &str) -> String {
-    let mut escaped = String::with_capacity(input.len());
-
-    for character in input.chars() {
-        match character {
-            '\\' => escaped.push_str("\\\\"),
-            '"' => escaped.push_str("\\\""),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            other => escaped.push(other),
-        }
-    }
-
-    escaped
 }
 
 async fn ensure_schema_ready(layout: &AppLayout) -> AppResult<()> {
@@ -607,6 +631,54 @@ mod tests {
 
         assert!(backup.backup_file.is_file());
         assert!(export.export_file.is_file());
+    }
+
+    #[tokio::test]
+    async fn export_contains_structured_records() {
+        let sandbox = TestSandbox::new();
+        let config = sandbox.config();
+        init_app(&config).await.expect("init should succeed");
+
+        let context = open_context(config.clone()).await.expect("open context");
+        let item = context
+            .service
+            .create_item(crate::domain::NewItem {
+                name: "Export Blazer".to_string(),
+                category: Some("Outerwear".to_string()),
+                subcategory: None,
+                brand: None,
+                size: None,
+                color_primary: None,
+                color_secondary: None,
+                material: None,
+                season: Some("Summer".to_string()),
+                formality: None,
+                status: Some("ready".to_string()),
+                current_location_id: None,
+                notes: None,
+            })
+            .await
+            .expect("create item");
+        let _ = context
+            .service
+            .register_physical_tag(crate::domain::NewPhysicalTag {
+                tag_type: "nfc".to_string(),
+                external_identifier: "export-tag-001".to_string(),
+                label: Some("Export Tag".to_string()),
+                bound_entity_type: "item".to_string(),
+                bound_entity_id: item.id,
+                notes: None,
+            })
+            .await
+            .expect("register tag");
+
+        let report = export_layout(&config).await.expect("export should succeed");
+        let payload = fs::read_to_string(&report.export_file).expect("read export file");
+
+        assert!(payload.contains("\"items\""));
+        assert!(payload.contains("\"physical_tags\""));
+        assert!(payload.contains("Export Blazer"));
+        assert!(payload.contains("export-tag-001"));
     }
 
     struct TestSandbox {

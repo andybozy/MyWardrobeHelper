@@ -43,6 +43,7 @@ The repository now has its first backend lifecycle and browser UI layers:
 - The native iOS app now has a tag tools screen plus a scanner abstraction for future NFC/QR work
 - Shared item filtering and dashboard summaries now work across the backend, web UI, API, and MCP
 - Backup and structured JSON export now preserve real wardrobe data for recovery workflows
+- A single `cargo run --release` startup path now auto-initializes missing local state, serves the web/API stack, enables LAN access for iOS, and exposes a local MCP listener for Codex
 - The native iOS companion app now covers connection setup, item browsing, media upload, and tag-resolution groundwork
 - The remaining API surface and iOS client work remain planned in `TODO.md`
 
@@ -63,6 +64,7 @@ tests/                Backend integration and smoke tests
 
 Run the backend binary with:
 
+- `cargo run --release`
 - `cargo run -- help`
 - `cargo run -- init`
 - `cargo run -- doctor`
@@ -70,15 +72,18 @@ Run the backend binary with:
 - `cargo run -- backup`
 - `cargo run -- export`
 - `cargo run -- mcp serve`
+- `cargo run -- mcp connect`
 
 Current command behavior:
 
+- running with no command starts the full local stack, auto-initializes the configured data directory if needed, binds HTTP for LAN access by default, and starts a local MCP listener for Codex on `127.0.0.1:<http-port + 1>`
 - `init` creates the external data directory layout, creates `wardrobe.sqlite3`, and runs SQLite migrations
 - `doctor` checks the resolved config, filesystem layout, writability, and database schema health
 - `serve` starts the local HTTP server, serves the browser UI and `/api/v1`, and prints the local and LAN URLs when relevant
 - `backup` copies the current SQLite database into `backups/`
 - `export` writes a structured JSON snapshot of items, media metadata, locations, movements, trips, trip items, and physical tags
 - `mcp serve` starts the embedded MCP server over STDIO
+- `mcp connect` bridges STDIO to the local MCP listener started by the default `run` mode
 
 ## Configuration
 

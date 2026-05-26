@@ -68,11 +68,10 @@ The current Swift files are organized under:
 Backend startup for local testing:
 
 ```bash
-cargo run -- init
-cargo run -- serve --lan
+cargo run --release
 ```
 
-If you only need same-Mac simulator testing, `cargo run -- serve` is enough.
+If you only need same-Mac simulator testing, `cargo run -- serve` is still enough.
 
 ## Base URL configuration
 

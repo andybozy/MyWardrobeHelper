@@ -2,5 +2,5 @@
 
 [mcp_servers.mywardrobehelper]
 command = "cargo"
-args = ["run", "--quiet", "--", "mcp", "serve", "--data-dir", ".data"]
+args = ["run", "--quiet", "--release", "--", "mcp", "connect", "--data-dir", ".data"]
 cwd = "."

@@ -1,10 +1,17 @@
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::io::{self, BufRead, BufReader as StdBufReader, BufWriter as StdBufWriter, Write};
+use std::net::{Shutdown, TcpStream as StdTcpStream};
+use std::thread;
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value, json};
+use tokio::io::{
+    AsyncBufReadExt, AsyncWriteExt, BufReader as AsyncBufReader, BufWriter as AsyncBufWriter,
+};
+use tokio::net::{TcpListener, TcpStream};
 
 use crate::app::AppContext;
+use crate::config::AppConfig;
 use crate::domain::{
     ItemFilter, MoveItemInput, NewItem, NewLocation, NewTrip, NewTripItem, UpdateTripInput,
     UpdateTripItemInput,
@@ -15,6 +22,7 @@ const SUPPORTED_PROTOCOL_VERSIONS: &[&str] =
     &["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const SERVER_NAME: &str = "mywardrobehelper";
 const SERVER_TITLE: &str = "MyWardrobeHelper MCP";
+const MCP_TCP_HOST: &str = "127.0.0.1";
 
 #[derive(Debug, Deserialize)]
 struct InitializeParams {
@@ -132,9 +140,9 @@ pub async fn serve(context: AppContext) -> AppResult<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut server = McpServer::new(context);
-    let mut writer = BufWriter::new(stdout.lock());
+    let mut writer = StdBufWriter::new(stdout.lock());
 
-    for line in BufReader::new(stdin.lock()).lines() {
+    for line in StdBufReader::new(stdin.lock()).lines() {
         let line = line.map_err(|error| AppError::io("read MCP stdin", error))?;
         if line.trim().is_empty() {
             continue;
@@ -154,6 +162,123 @@ pub async fn serve(context: AppContext) -> AppResult<()> {
     }
 
     Ok(())
+}
+
+pub async fn serve_tcp(context: AppContext) -> AppResult<()> {
+    let port = tcp_port(&context.config)?;
+    let bind_target = format!("{MCP_TCP_HOST}:{port}");
+    let listener = TcpListener::bind((MCP_TCP_HOST, port))
+        .await
+        .map_err(|error| AppError::io(format!("bind MCP TCP listener at {bind_target}"), error))?;
+
+    println!("Codex MCP: {}", tcp_url(port));
+    println!("Codex bridge: cargo run --release -- mcp connect");
+
+    let shutdown = shutdown_signal();
+    tokio::pin!(shutdown);
+
+    loop {
+        tokio::select! {
+            _ = &mut shutdown => return Ok(()),
+            accepted = listener.accept() => {
+                let (stream, _) = accepted
+                    .map_err(|error| AppError::io(format!("accept MCP TCP connection on {bind_target}"), error))?;
+                let session_context = context.clone();
+                tokio::spawn(async move {
+                    if let Err(error) = serve_tcp_session(stream, session_context).await {
+                        eprintln!("warning: {error}");
+                    }
+                });
+            }
+        }
+    }
+}
+
+pub async fn connect(config: &AppConfig) -> AppResult<()> {
+    let port = tcp_port(config)?;
+    let address = format!("{MCP_TCP_HOST}:{port}");
+    let mut stream = StdTcpStream::connect(&address).map_err(|error| {
+        AppError::io(format!("connect to MCP TCP listener at {address}"), error)
+    })?;
+    let mut read_stream = stream
+        .try_clone()
+        .map_err(|error| AppError::io(format!("clone MCP TCP stream for {address}"), error))?;
+
+    let output_thread = thread::spawn(move || -> AppResult<()> {
+        let stdout = io::stdout();
+        let mut stdout = stdout.lock();
+        io::copy(&mut read_stream, &mut stdout)
+            .map_err(|error| AppError::io("forward MCP responses to stdout", error))?;
+        stdout
+            .flush()
+            .map_err(|error| AppError::io("flush stdout", error))?;
+        Ok(())
+    });
+
+    let stdin = io::stdin();
+    let mut stdin = stdin.lock();
+    io::copy(&mut stdin, &mut stream)
+        .map_err(|error| AppError::io("forward MCP requests from stdin", error))?;
+    stream.shutdown(Shutdown::Write).map_err(|error| {
+        AppError::io(format!("shutdown MCP TCP write half for {address}"), error)
+    })?;
+
+    match output_thread.join() {
+        Ok(result) => result,
+        Err(_) => Err(AppError::config("MCP TCP bridge thread panicked")),
+    }
+}
+
+fn tcp_port(config: &AppConfig) -> AppResult<u16> {
+    config.port.checked_add(1).ok_or_else(|| {
+        AppError::config("cannot derive the MCP TCP port when the HTTP port is 65535")
+    })
+}
+
+fn tcp_url(port: u16) -> String {
+    format!("tcp://{MCP_TCP_HOST}:{port}")
+}
+
+async fn serve_tcp_session(stream: TcpStream, context: AppContext) -> AppResult<()> {
+    let (reader, writer) = stream.into_split();
+    let mut lines = AsyncBufReader::new(reader).lines();
+    let mut writer = AsyncBufWriter::new(writer);
+    let mut server = McpServer::new(context);
+
+    while let Some(line) = lines
+        .next_line()
+        .await
+        .map_err(|error| AppError::io("read MCP TCP input", error))?
+    {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let responses = server.handle_line(&line).await;
+        for response in responses {
+            let payload = serde_json::to_string(&response).map_err(|error| {
+                AppError::config(format!("serialize MCP TCP response: {error}"))
+            })?;
+            writer
+                .write_all(payload.as_bytes())
+                .await
+                .map_err(|error| AppError::io("write MCP TCP output", error))?;
+            writer
+                .write_all(b"\n")
+                .await
+                .map_err(|error| AppError::io("write MCP TCP output", error))?;
+        }
+        writer
+            .flush()
+            .await
+            .map_err(|error| AppError::io("flush MCP TCP output", error))?;
+    }
+
+    Ok(())
+}
+
+async fn shutdown_signal() {
+    let _ = tokio::signal::ctrl_c().await;
 }
 
 struct McpServer {

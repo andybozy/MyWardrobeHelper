@@ -291,3 +291,19 @@ Acceptance criteria met:
 - The repo is in a clean state for future development.
 Notes:
 - Full iOS `xcodebuild` validation remains limited by the current machine SDK setup, so the project uses the documented fallback validation path.
+
+## SEC-019 - Unified full-stack startup for web, iOS, and Codex
+Completed: 2026-05-26
+Summary:
+- Made `cargo run --release` the default full-stack startup path so one command starts the web UI, JSON API, and a shared Codex MCP listener.
+- Added auto-initialization for missing local data during the default startup path so first-run usage no longer needs a separate `init`.
+- Added `mcp connect` as a thin STDIO bridge so Codex can attach to the running backend instead of spawning a second wardrobe process.
+- Updated README, MCP/Codex docs, iOS docs, and the repo-local Codex config example to document the one-command workflow.
+Acceptance criteria met:
+- One command starts the backend for browser use.
+- The same backend instance is reachable from iOS over LAN.
+- Codex can connect to the already-running backend through MCP.
+- The workflow is documented in the current repository docs.
+- Focused verification passed for CLI parsing, MCP behavior, and live startup smoke checks.
+Notes:
+- The shared MCP listener currently uses a local TCP bridge on `127.0.0.1:<http-port + 1>`; standalone `mcp serve` remains available for direct STDIO-only use.

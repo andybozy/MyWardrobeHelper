@@ -12,15 +12,17 @@ const HELP_TEXT: &str = "\
 MyWardrobeHelper
 
 Usage:
-  mywardrobehelper [--data-dir PATH] [--host HOST] [--port PORT] [--lan] <command>
+  mywardrobehelper [--data-dir PATH] [--host HOST] [--port PORT] [--lan] [command]
 
 Commands:
+  run          Start the local HTTP server, LAN-ready API, and embedded MCP listener.
   init         Create the external data directory layout and run SQLite migrations.
   doctor       Check config resolution, filesystem readiness, and database schema health.
   serve        Start the local HTTP server for the browser UI.
   backup       Copy the current database file into the backups directory.
   export       Write a placeholder JSON export into the exports directory.
   mcp serve    Start the embedded MCP server over STDIO.
+  mcp connect  Bridge STDIO to the local embedded MCP listener started by `run`.
   help         Show this message.
 
 Flags:
@@ -33,12 +35,14 @@ Flags:
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
     Help,
+    Run,
     Init,
     Doctor,
     Serve,
     Backup,
     Export,
     McpServe,
+    McpConnect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,11 +90,16 @@ fn parse_args(args: &[String], cwd: &Path, env_config: EnvConfig) -> AppResult<C
     let mut overrides = ConfigOverrides::default();
     let mut position = 0usize;
     let mut command = None;
+    let has_env_host = env_config.host.is_some();
 
     while position < args.len() {
         match args[position].as_str() {
             "-h" | "--help" | "help" => {
                 command = Some(Command::Help);
+                position += 1;
+            }
+            "run" => {
+                set_command(&mut command, Command::Run)?;
                 position += 1;
             }
             "--data-dir" => {
@@ -140,14 +149,27 @@ fn parse_args(args: &[String], cwd: &Path, env_config: EnvConfig) -> AppResult<C
                 position += 1;
             }
             "mcp" => {
-                if position + 1 >= args.len() || args[position + 1] != "serve" {
+                if position + 1 >= args.len() {
                     return Err(AppError::invalid_argument(
-                        "expected `mcp serve` for the embedded MCP command",
+                        "expected `mcp serve` or `mcp connect` for the embedded MCP command",
                     ));
                 }
 
-                set_command(&mut command, Command::McpServe)?;
-                position += 2;
+                match args[position + 1].as_str() {
+                    "serve" => {
+                        set_command(&mut command, Command::McpServe)?;
+                        position += 2;
+                    }
+                    "connect" => {
+                        set_command(&mut command, Command::McpConnect)?;
+                        position += 2;
+                    }
+                    _ => {
+                        return Err(AppError::invalid_argument(
+                            "expected `mcp serve` or `mcp connect` for the embedded MCP command",
+                        ));
+                    }
+                }
             }
             other if other.starts_with("--") => {
                 return Err(AppError::invalid_argument(format!(
@@ -162,7 +184,10 @@ fn parse_args(args: &[String], cwd: &Path, env_config: EnvConfig) -> AppResult<C
         }
     }
 
-    let command = command.unwrap_or(Command::Help);
+    let command = command.unwrap_or(Command::Run);
+    if command == Command::Run && overrides.host.is_none() && !has_env_host {
+        overrides.lan = true;
+    }
     let config = AppConfig::from_sources(overrides, env_config, cwd)?;
 
     Ok(Cli { command, config })
@@ -172,6 +197,25 @@ async fn dispatch(cli: Cli) -> AppResult<()> {
     match cli.command {
         Command::Help => {
             println!("{HELP_TEXT}");
+            Ok(())
+        }
+        Command::Run => {
+            let context = match app::open_context(cli.config.clone()).await {
+                Ok(context) => context,
+                Err(AppError::NotInitialized { .. }) => {
+                    let report = app::init_app(&cli.config).await?;
+                    println!(
+                        "Initialized data directory at {}",
+                        report.layout.root.display()
+                    );
+                    app::open_context(cli.config.clone()).await?
+                }
+                Err(error) => return Err(error),
+            };
+
+            let http_server = web::serve(context.clone());
+            let mcp_server = mcp::serve_tcp(context);
+            let _ = tokio::try_join!(http_server, mcp_server)?;
             Ok(())
         }
         Command::Init => {
@@ -266,6 +310,7 @@ async fn dispatch(cli: Cli) -> AppResult<()> {
             let context = app::open_context(cli.config.clone()).await?;
             mcp::serve(context).await
         }
+        Command::McpConnect => mcp::connect(&cli.config).await,
     }
 }
 
@@ -314,6 +359,17 @@ mod tests {
     }
 
     #[test]
+    fn defaults_to_run_and_lan_when_no_command_is_given() {
+        let args = Vec::new();
+        let cwd = Path::new("/tmp/mywardrobehelper-tests");
+        let cli = parse_args(&args, cwd, EnvConfig::default()).expect("cli parses");
+
+        assert_eq!(cli.command, Command::Run);
+        assert_eq!(cli.config.host, crate::config::DEFAULT_LAN_HOST);
+        assert_eq!(cli.config.port, DEFAULT_PORT);
+    }
+
+    #[test]
     fn parses_mcp_serve_subcommand() {
         let args = vec![
             "--data-dir".to_string(),
@@ -326,6 +382,15 @@ mod tests {
 
         assert_eq!(cli.command, Command::McpServe);
         assert_eq!(cli.config.data_dir, cwd.join("custom-data"));
+    }
+
+    #[test]
+    fn parses_mcp_connect_subcommand() {
+        let args = vec!["mcp".to_string(), "connect".to_string()];
+        let cwd = Path::new("/tmp/mywardrobehelper-tests");
+        let cli = parse_args(&args, cwd, EnvConfig::default()).expect("cli parses");
+
+        assert_eq!(cli.command, Command::McpConnect);
     }
 
     #[test]

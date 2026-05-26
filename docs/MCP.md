@@ -10,15 +10,29 @@ This avoids browser scraping and keeps the Rust backend as the source of truth.
 
 Command:
 
+- `cargo run --release`
 - `cargo run -- mcp serve`
+- `cargo run -- mcp connect`
 
 Current transport:
 
-- STDIO only
+- shared local TCP listener on `127.0.0.1:<http-port + 1>` when the default full-stack runtime is active
+- STDIO for the standalone `mcp serve` command
 - newline-delimited JSON-RPC messages
 - no HTTP MCP transport yet
 
 The server supports initialization, `tools/list`, `tools/call`, and `ping`.
+
+## Recommended local workflow
+
+For one-command local use across the browser UI, iOS, and Codex:
+
+1. Run `cargo run --release`
+2. Open the browser UI on the printed HTTP URL
+3. Point the iOS app at the printed LAN URL
+4. Configure Codex to run `cargo run --quiet --release -- mcp connect --data-dir .data`
+
+`mcp connect` is a thin STDIO bridge to the local TCP listener started by the full-stack runtime, so Codex attaches to the already-running backend instead of starting a second one.
 
 ## Current tool surface
 

@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 @MainActor
@@ -12,12 +13,16 @@ final class ItemDetailViewModel: ObservableObject {
     private let apiClient: APIClient
     private let mediaUploadClient: MediaUploadClient
 
-    init(
-        apiClient: APIClient = APIClient(),
-        mediaUploadClient: MediaUploadClient = MediaUploadClient()
-    ) {
+    init(apiClient: APIClient, mediaUploadClient: MediaUploadClient) {
         self.apiClient = apiClient
         self.mediaUploadClient = mediaUploadClient
+    }
+
+    convenience init() {
+        self.init(
+            apiClient: APIClient(),
+            mediaUploadClient: MediaUploadClient()
+        )
     }
 
     func loadItem(id: String, baseURLString: String) async {
@@ -70,8 +75,10 @@ final class ItemDetailViewModel: ObservableObject {
                 uploads: uploads,
                 baseURL: baseURL
             ) { [weak self] progress, text in
-                self?.uploadProgress = progress
-                self?.message = text
+                Task { @MainActor [weak self] in
+                    self?.uploadProgress = progress
+                    self?.message = text
+                }
             }
 
             await loadItem(id: itemID, baseURLString: baseURLString)

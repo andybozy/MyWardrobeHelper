@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 @MainActor
@@ -10,8 +11,12 @@ final class ItemsViewModel: ObservableObject {
 
     private let apiClient: APIClient
 
-    init(apiClient: APIClient = APIClient()) {
+    init(apiClient: APIClient) {
         self.apiClient = apiClient
+    }
+
+    convenience init() {
+        self.init(apiClient: APIClient())
     }
 
     func loadItems(baseURLString: String) async {

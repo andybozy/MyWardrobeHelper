@@ -18,7 +18,7 @@ struct MediaUploadClient {
         itemID: String,
         uploads: [PendingMediaUpload],
         baseURL: URL,
-        progressHandler: @escaping @MainActor (Double, String) -> Void
+        progressHandler: @escaping @Sendable (Double, String) -> Void
     ) async throws -> [ItemMediaRecord] {
         guard !uploads.isEmpty else {
             return []
@@ -26,10 +26,12 @@ struct MediaUploadClient {
 
         var createdMedia: [ItemMediaRecord] = []
         for (index, upload) in uploads.enumerated() {
-            await progressHandler(
-                Double(index) / Double(uploads.count),
-                "Uploading \(index + 1) of \(uploads.count)"
-            )
+            await MainActor.run {
+                progressHandler(
+                    Double(index) / Double(uploads.count),
+                    "Uploading \(index + 1) of \(uploads.count)"
+                )
+            }
 
             let response = try await uploadSingleItemMedia(
                 itemID: itemID,
@@ -38,10 +40,12 @@ struct MediaUploadClient {
             )
             createdMedia.append(contentsOf: response.media)
 
-            await progressHandler(
-                Double(index + 1) / Double(uploads.count),
-                "Uploaded \(index + 1) of \(uploads.count)"
-            )
+            await MainActor.run {
+                progressHandler(
+                    Double(index + 1) / Double(uploads.count),
+                    "Uploaded \(index + 1) of \(uploads.count)"
+                )
+            }
         }
 
         return createdMedia

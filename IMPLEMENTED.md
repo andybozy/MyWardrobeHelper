@@ -307,3 +307,18 @@ Acceptance criteria met:
 - Focused verification passed for CLI parsing, MCP behavior, and live startup smoke checks.
 Notes:
 - The shared MCP listener currently uses a local TCP bridge on `127.0.0.1:<http-port + 1>`; standalone `mcp serve` remains available for direct STDIO-only use.
+
+## SEC-020 - iOS build verification and status-surface cleanup
+Completed: 2026-05-26
+Summary:
+- Fixed stale runtime-status messaging so the browser status page reports the current HTTP, API, and MCP transport surface accurately.
+- Repaired the SwiftUI iOS view models so the app compiles cleanly against the iPhoneOS SDK with current Swift concurrency and `ObservableObject` requirements.
+- Tightened the media upload progress callback so UI state updates hop back to the main actor explicitly.
+- Updated iOS documentation with the explicit `DEVELOPER_DIR` and compile-only validation commands that work on this machine.
+Acceptance criteria met:
+- The status page no longer claims the API and MCP surfaces are placeholders.
+- The iOS project compiles successfully against the connected iPhone target when code signing is disabled for verification.
+- Rust formatting, clippy, and the full Rust test suite pass after the fixes.
+- `docs/IOS.md` documents the working validation path for this environment.
+Notes:
+- A fully signed terminal `xcodebuild` still depends on local signing/keychain state; compile-only device validation succeeded with `CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO`.

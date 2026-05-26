@@ -332,9 +332,9 @@ pub async fn doctor(config: &AppConfig) -> DoctorReport {
         ),
     ));
 
-    checks.push(warn(
+    checks.push(pass(
         "transport_status",
-        "HTTP UI is available; JSON API and MCP server remain placeholders until SEC-006 and SEC-007"
+        "HTTP UI and JSON API are active on this server; embedded MCP is implemented via `mcp serve` or the unified `run` startup."
             .to_string(),
     ));
 
@@ -525,14 +525,6 @@ fn pass(label: &'static str, message: String) -> DoctorCheck {
     }
 }
 
-fn warn(label: &'static str, message: String) -> DoctorCheck {
-    DoctorCheck {
-        status: CheckStatus::Warn,
-        label,
-        message,
-    }
-}
-
 fn fail(label: &'static str, message: String) -> DoctorCheck {
     DoctorCheck {
         status: CheckStatus::Fail,
@@ -599,6 +591,29 @@ mod tests {
 
         assert!(report.has_failures());
         assert!(report.checks.iter().any(|check| check.label == "data_dir"));
+    }
+
+    #[tokio::test]
+    async fn doctor_reports_current_transport_surface() {
+        let sandbox = TestSandbox::new();
+        let config = sandbox.config();
+        init_app(&config).await.expect("init should succeed");
+
+        let report = doctor(&config).await;
+        let transport = report
+            .checks
+            .iter()
+            .find(|check| check.label == "transport_status")
+            .expect("transport status check should exist");
+
+        assert_eq!(transport.status, CheckStatus::Pass);
+        assert!(
+            transport
+                .message
+                .contains("HTTP UI and JSON API are active")
+        );
+        assert!(transport.message.contains("mcp serve"));
+        assert!(transport.message.contains("run"));
     }
 
     #[tokio::test]

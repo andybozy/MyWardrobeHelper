@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 @MainActor
@@ -13,13 +14,14 @@ final class ConnectionViewModel: ObservableObject {
     private let profileStore: ServerProfileStore
     private let apiClient: APIClient
 
-    init(
-        profileStore: ServerProfileStore = ServerProfileStore(),
-        apiClient: APIClient = APIClient()
-    ) {
+    init(profileStore: ServerProfileStore, apiClient: APIClient) {
         self.profileStore = profileStore
         self.apiClient = apiClient
         self.profile = profileStore.load()
+    }
+
+    convenience init() {
+        self.init(profileStore: ServerProfileStore(), apiClient: APIClient())
     }
 
     var canTestConnection: Bool {

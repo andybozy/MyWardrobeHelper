@@ -116,13 +116,32 @@ Displayed information:
 
 ## Verification note
 
-In this environment, full `xcodebuild` project builds are not available because full Xcode is not selected on the machine. The project structure and plist/project files were kept consistent, and the Xcode project remains the native source of truth for the app.
+If full Xcode is installed but not the active developer directory, you can still build with an explicit `DEVELOPER_DIR`, for example:
 
-Cheap validation used here:
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
+  -project ios/MyWardrobeHelperiOS/MyWardrobeHelperiOS/MyWardrobeHelperiOS.xcodeproj \
+  -scheme MyWardrobeHelperiOS \
+  -destination 'id=<device-id>' \
+  build
+```
 
-- project file updates kept within the existing filesystem-synced Xcode project layout
-- plist-related keys updated directly in `project.pbxproj`
-- Swift source added under the synced project root so Xcode can discover it without manual file references
+If signing is not available in the current shell session, compile-only validation against the iPhoneOS SDK still works with:
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
+  -project ios/MyWardrobeHelperiOS/MyWardrobeHelperiOS/MyWardrobeHelperiOS.xcodeproj \
+  -scheme MyWardrobeHelperiOS \
+  -destination 'id=<device-id>' \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  build
+```
+
+When full Xcode is genuinely unavailable, fall back to:
+
+- `plutil -lint ios/.../project.pbxproj`
+- `swiftc -typecheck ios/.../*.swift`
 
 ## Next steps
 

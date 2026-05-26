@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 @MainActor
@@ -11,12 +12,16 @@ final class TagsViewModel: ObservableObject {
     private let apiClient: APIClient
     private let scannerService: TagScannerService
 
-    init(
-        apiClient: APIClient = APIClient(),
-        scannerService: TagScannerService = UnsupportedTagScannerService()
-    ) {
+    init(apiClient: APIClient, scannerService: TagScannerService) {
         self.apiClient = apiClient
         self.scannerService = scannerService
+    }
+
+    convenience init() {
+        self.init(
+            apiClient: APIClient(),
+            scannerService: UnsupportedTagScannerService()
+        )
     }
 
     var scannerDisplayName: String {

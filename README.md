@@ -44,6 +44,7 @@ The repository now has its first backend lifecycle and browser UI layers:
 - Shared item filtering and dashboard summaries now work across the backend, web UI, API, and MCP
 - Backup and structured JSON export now preserve real wardrobe data for recovery workflows
 - A single `cargo run --release` startup path now auto-initializes missing local state, serves the web/API stack, enables LAN access for iOS, and exposes a local MCP listener for Codex
+- Codex-bin photo analysis can now suggest item fields through the backend, web item form, JSON API, iOS create flow, and MCP
 - The native iOS companion app now covers connection setup, item browsing, media upload, and tag-resolution groundwork
 - The remaining API surface and iOS client work remain planned in `TODO.md`
 
@@ -62,7 +63,7 @@ tests/                Backend integration and smoke tests
 
 ## Guide
 
-For a GitHub-friendly overview that covers the backend, web app, iOS app, API, MCP, commands, and verification workflow, start with [docs/GITHUB_GUIDE.md](docs/GITHUB_GUIDE.md).
+For the main GitHub-facing documentation hub that covers the backend, web app, iOS app, API, MCP, commands, storage, and verification workflow, start with [docs/](docs/).
 
 ## Runtime commands
 
@@ -118,7 +119,10 @@ The backend keeps mutable state outside the binary:
     items/
   backups/
   exports/
+  codex/
 ```
+
+The `codex/` directory is created on demand as a local scratch workspace for structured photo-analysis runs.
 
 SQLite migrations live in `migrations/` and are applied during `init`. The current initial schema creates:
 

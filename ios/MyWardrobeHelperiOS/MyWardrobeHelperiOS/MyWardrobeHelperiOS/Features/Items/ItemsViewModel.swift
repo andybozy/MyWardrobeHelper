@@ -43,12 +43,10 @@ final class ItemsViewModel: ObservableObject {
     }
 
     func createItem(
-        name: String,
-        category: String,
-        brand: String,
+        requestBody: CreateItemRequest,
         baseURLString: String
     ) async -> Bool {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = requestBody.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
             statusMessage = "Item name is required."
             return false
@@ -62,8 +60,18 @@ final class ItemsViewModel: ObservableObject {
             let createdItem = try await apiClient.createItem(
                 CreateItemRequest(
                     name: trimmedName,
-                    category: emptyToNil(category),
-                    brand: emptyToNil(brand)
+                    category: emptyToNil(requestBody.category),
+                    subcategory: emptyToNil(requestBody.subcategory),
+                    brand: emptyToNil(requestBody.brand),
+                    size: emptyToNil(requestBody.size),
+                    colorPrimary: emptyToNil(requestBody.colorPrimary),
+                    colorSecondary: emptyToNil(requestBody.colorSecondary),
+                    material: emptyToNil(requestBody.material),
+                    season: emptyToNil(requestBody.season),
+                    formality: emptyToNil(requestBody.formality),
+                    status: emptyToNil(requestBody.status),
+                    currentLocationID: nil,
+                    notes: emptyToNil(requestBody.notes)
                 ),
                 baseURL: baseURL
             )
@@ -77,7 +85,19 @@ final class ItemsViewModel: ObservableObject {
         }
     }
 
-    private func emptyToNil(_ value: String) -> String? {
+    func analyzeItemPhoto(
+        upload: PendingMediaUpload,
+        baseURLString: String
+    ) async throws -> ItemPhotoAnalysisSuggestion {
+        let baseURL = try apiClient.normalizedBaseURL(from: baseURLString)
+        return try await apiClient.analyzeItemPhoto(upload, baseURL: baseURL)
+    }
+
+    private func emptyToNil(_ value: String?) -> String? {
+        guard let value else {
+            return nil
+        }
+
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }

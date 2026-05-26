@@ -42,6 +42,7 @@ Implemented tools:
 - `wardrobe.list_items`
 - `wardrobe.get_item`
 - `wardrobe.create_item`
+- `wardrobe.analyze_item_photo`
 - `wardrobe.list_locations`
 - `wardrobe.create_location`
 - `wardrobe.move_item`
@@ -84,6 +85,7 @@ Tool output shape:
 Current filtering support:
 
 - `wardrobe.list_items` accepts optional `q`, `category`, `brand`, `season`, `current_location_id`, and `status` arguments
+- `wardrobe.analyze_item_photo` accepts a local `image_path` argument and returns structured item-field suggestions from the Codex-backed backend
 
 ## Protocol flow
 
@@ -127,6 +129,7 @@ Call a tool:
 - no tool-update notifications (`listChanged` is `false`)
 - no `wardrobe.update_item` yet
 - no streamable HTTP transport yet
+- photo analysis depends on a working local `codex` CLI login on the backend machine
 
 ## Related files
 

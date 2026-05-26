@@ -32,6 +32,12 @@ The repository contains a native SwiftUI companion app at:
 - the app includes a backend-backed tag resolution screen
 - the scanner path is explicitly present but honestly reports that live scanning is not implemented yet
 
+The Codex-backed photo-analysis slice is now partially in place:
+
+- the create-item flow can analyze a selected photo through the backend
+- the backend returns Codex-powered field suggestions
+- the create sheet can prefill the item card before save
+
 Richer item editing remains the next section.
 
 ## What the app does now
@@ -46,6 +52,7 @@ The current app focuses on local-network connection setup:
 - browse the backend item list
 - open item detail screens
 - create a basic item record from iOS
+- select one photo during item creation and let the backend prefill fields
 - upload one or more images/videos from the photo library to an item
 - show uploaded media entries after success
 - resolve backend tags manually from iOS
@@ -113,6 +120,7 @@ Displayed information:
 - no edit-item flow on iOS yet
 - no tag-scanning integration yet
 - no Bonjour discovery yet
+- photo-based autocomplete depends on the backend machine having a working local `codex` CLI login
 
 ## Verification note
 

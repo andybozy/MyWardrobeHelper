@@ -2,26 +2,33 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::{
-    HealthSnapshot, Item, ItemFilter, ItemMedia, Location, MoveItemInput, MoveItemResult, Movement,
-    NewItem, NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag,
+    AnalyzeItemPhotoInput, HealthSnapshot, Item, ItemFilter, ItemMedia,
+    ItemPhotoAnalysisSuggestion, Location, MoveItemInput, MoveItemResult, Movement, NewItem,
+    NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag,
     ResolvePhysicalTagInput, ResolvedPhysicalTag, Trip, TripItem, UpdateItemInput, UpdateTripInput,
     UpdateTripItemInput,
 };
 use crate::error::{AppError, AppResult};
-use crate::infra::MediaStorage;
+use crate::infra::{CodexItemAnalyzer, MediaStorage};
 use crate::repositories::SqliteWardrobeRepository;
 
 #[derive(Debug, Clone)]
 pub struct WardrobeService {
     repository: SqliteWardrobeRepository,
     media_storage: MediaStorage,
+    codex_item_analyzer: CodexItemAnalyzer,
 }
 
 impl WardrobeService {
-    pub fn new(repository: SqliteWardrobeRepository, media_storage: MediaStorage) -> Self {
+    pub fn new(
+        repository: SqliteWardrobeRepository,
+        media_storage: MediaStorage,
+        codex_item_analyzer: CodexItemAnalyzer,
+    ) -> Self {
         Self {
             repository,
             media_storage,
+            codex_item_analyzer,
         }
     }
 
@@ -183,6 +190,40 @@ impl WardrobeService {
         }
 
         self.repository.list_item_movements(item_id).await
+    }
+
+    pub async fn analyze_item_photo(
+        &self,
+        input: AnalyzeItemPhotoInput,
+    ) -> AppResult<ItemPhotoAnalysisSuggestion> {
+        let normalized = AnalyzeItemPhotoInput {
+            original_filename: input.original_filename.and_then(|value| {
+                let trimmed = value.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            }),
+            mime_type: require_identifier("image mime type", &input.mime_type)?.to_string(),
+            bytes: input.bytes,
+        };
+
+        self.codex_item_analyzer.analyze_upload(normalized).await
+    }
+
+    pub async fn analyze_item_photo_path(
+        &self,
+        image_path: &str,
+    ) -> AppResult<ItemPhotoAnalysisSuggestion> {
+        let image_path = require_identifier("image path", image_path)?;
+        self.codex_item_analyzer
+            .analyze_path(std::path::PathBuf::from(image_path))
+            .await
+    }
+
+    pub async fn codex_item_analysis_status(&self) -> AppResult<String> {
+        self.codex_item_analyzer.check_ready().await
     }
 
     pub async fn create_location(&self, input: NewLocation) -> AppResult<Location> {
@@ -483,16 +524,20 @@ fn generate_id(prefix: &str) -> String {
 mod tests {
     use std::env;
     use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    use crate::app::{init_app, open_context};
+    use crate::app::{AppLayout, init_app, open_context};
     use crate::config::{AppConfig, DEFAULT_HOST, DEFAULT_PORT};
     use crate::domain::{
-        ItemFilter, MoveItemInput, NewItem, NewItemMediaInput, NewLocation, NewPhysicalTag,
-        NewTrip, NewTripItem, ResolvePhysicalTagInput, UpdateItemInput, UpdateTripInput,
-        UpdateTripItemInput,
+        AnalyzeItemPhotoInput, ItemFilter, MoveItemInput, NewItem, NewItemMediaInput, NewLocation,
+        NewPhysicalTag, NewTrip, NewTripItem, ResolvePhysicalTagInput, UpdateItemInput,
+        UpdateTripInput, UpdateTripItemInput,
     };
+    use crate::infra::{CodexItemAnalyzer, MediaStorage};
+    use crate::repositories::SqliteWardrobeRepository;
 
     use super::*;
 
@@ -1165,6 +1210,49 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn analyze_item_photo_returns_structured_suggestion() {
+        let sandbox = ServiceSandbox::new();
+        let service = sandbox
+            .service_with_fake_codex(
+                r#"{
+                    "name":"Blue Oxford Shirt",
+                    "category":"Tops",
+                    "subcategory":"Button-Down Shirt",
+                    "brand":null,
+                    "size":null,
+                    "color_primary":"Blue",
+                    "color_secondary":"White",
+                    "material":"Cotton",
+                    "season":"Spring",
+                    "formality":"Smart Casual",
+                    "status":null,
+                    "notes":"Looks like a striped oxford shirt.",
+                    "summary":"The photo appears to show a blue striped button-down shirt.",
+                    "warnings":["Brand is not visible."]
+                }"#,
+            )
+            .await;
+
+        let suggestion = service
+            .analyze_item_photo(AnalyzeItemPhotoInput {
+                original_filename: Some("shirt.jpg".to_string()),
+                mime_type: "image/jpeg".to_string(),
+                bytes: b"fake-image-bytes".to_vec(),
+            })
+            .await
+            .expect("photo analysis should succeed");
+
+        assert_eq!(suggestion.name.as_deref(), Some("Blue Oxford Shirt"));
+        assert_eq!(suggestion.category.as_deref(), Some("Tops"));
+        assert_eq!(suggestion.color_primary.as_deref(), Some("Blue"));
+        assert_eq!(
+            suggestion.summary,
+            "The photo appears to show a blue striped button-down shirt."
+        );
+        assert_eq!(suggestion.warnings, vec!["Brand is not visible."]);
+    }
+
     struct ServiceSandbox {
         root: PathBuf,
         data_dir: PathBuf,
@@ -1200,6 +1288,41 @@ mod tests {
                 .expect("open app context")
                 .service
         }
+
+        async fn service_with_fake_codex(&self, payload: &str) -> WardrobeService {
+            let config = AppConfig {
+                host: DEFAULT_HOST.to_string(),
+                port: DEFAULT_PORT,
+                data_dir: self.data_dir.clone(),
+            };
+
+            init_app(&config).await.expect("initialize database");
+
+            let layout = AppLayout::from_data_dir(config.data_dir.clone());
+            let repository = SqliteWardrobeRepository::new(layout.database_file.clone());
+            let script_path = write_fake_codex_script(&self.root, payload);
+
+            WardrobeService::new(
+                repository,
+                MediaStorage::new(layout.root.clone()),
+                CodexItemAnalyzer::with_command(layout.root.join("codex"), script_path),
+            )
+        }
+    }
+
+    fn write_fake_codex_script(root: &Path, payload: &str) -> PathBuf {
+        let script_path = root.join("fake-codex.sh");
+        let script = format!(
+            "#!/bin/sh\noutput=\"\"\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--output-last-message\" ]; then\n    output=\"$2\"\n    shift 2\n    continue\n  fi\n  shift\n done\nprintf '%s' '{}' > \"$output\"\n",
+            payload.replace('\'', "'\"'\"'")
+        );
+        fs::write(&script_path, script).expect("write fake codex script");
+        let mut permissions = fs::metadata(&script_path)
+            .expect("script metadata")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&script_path, permissions).expect("chmod fake codex script");
+        script_path
     }
 
     impl Drop for ServiceSandbox {

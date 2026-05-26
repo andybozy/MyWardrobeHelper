@@ -110,6 +110,51 @@
         }
       }
     },
+    "/items/analyze-photo": {
+      "post": {
+        "summary": "Analyze an item photo and suggest item fields",
+        "operationId": "analyzeItemPhoto",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Structured item-field suggestion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemPhotoAnalysisResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid multipart request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/items/{id}": {
       "get": {
         "summary": "Get an item",
@@ -936,6 +981,15 @@
           }
         }
       },
+      "ItemPhotoAnalysisResponse": {
+        "type": "object",
+        "required": ["suggestion"],
+        "properties": {
+          "suggestion": {
+            "$ref": "#/components/schemas/ItemPhotoAnalysisSuggestion"
+          }
+        }
+      },
       "MovementsListResponse": {
         "type": "object",
         "required": ["movements"],
@@ -1172,6 +1226,29 @@
           "caption": { "type": ["string", "null"] },
           "sort_order": { "type": "integer" },
           "created_at": { "type": "string" }
+        }
+      },
+      "ItemPhotoAnalysisSuggestion": {
+        "type": "object",
+        "required": ["summary", "warnings"],
+        "properties": {
+          "name": { "type": ["string", "null"] },
+          "category": { "type": ["string", "null"] },
+          "subcategory": { "type": ["string", "null"] },
+          "brand": { "type": ["string", "null"] },
+          "size": { "type": ["string", "null"] },
+          "color_primary": { "type": ["string", "null"] },
+          "color_secondary": { "type": ["string", "null"] },
+          "material": { "type": ["string", "null"] },
+          "season": { "type": ["string", "null"] },
+          "formality": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "summary": { "type": "string" },
+          "warnings": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
         }
       },
       "Movement": {

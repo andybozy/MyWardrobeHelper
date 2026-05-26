@@ -136,6 +136,11 @@ struct RemoveTripItemArgs {
     trip_item_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct AnalyzeItemPhotoArgs {
+    image_path: String,
+}
+
 pub async fn serve(context: AppContext) -> AppResult<()> {
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -508,6 +513,16 @@ impl McpServer {
                 })
                 .await,
             ),
+            "wardrobe.analyze_item_photo" => tool_success(
+                with_args::<AnalyzeItemPhotoArgs, _, _>(params.arguments, |args| {
+                    let service = service.clone();
+                    async move {
+                        let suggestion = service.analyze_item_photo_path(&args.image_path).await?;
+                        Ok(json!({ "suggestion": suggestion }))
+                    }
+                })
+                .await,
+            ),
             "wardrobe.move_item" => tool_success(
                 with_args::<MoveItemArgs, _, _>(params.arguments, |args| {
                     let service = service.clone();
@@ -871,6 +886,20 @@ fn tool_definitions() -> Vec<Value> {
             false,
         ),
         tool_definition(
+            "wardrobe.analyze_item_photo",
+            "Analyze a local item photo with the Codex-backed backend and return item field suggestions.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "image_path": { "type": "string", "description": "Absolute or relative path to a local image file." }
+                },
+                "required": ["image_path"]
+            }),
+            true,
+            false,
+            true,
+        ),
+        tool_definition(
             "wardrobe.move_item",
             "Move an item to another location and record movement history.",
             json!({
@@ -1057,12 +1086,17 @@ fn tool_definition(
 mod tests {
     use std::env;
     use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    use crate::app::{init_app, open_context};
+    use crate::app::{AppContext, AppLayout, init_app, open_context};
     use crate::config::{AppConfig, DEFAULT_HOST, DEFAULT_PORT};
     use crate::domain::{NewItem, NewLocation, NewTrip};
+    use crate::infra::{CodexItemAnalyzer, MediaStorage};
+    use crate::repositories::SqliteWardrobeRepository;
+    use crate::services::WardrobeService;
 
     use super::*;
 
@@ -1277,6 +1311,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn analyze_item_photo_tool_returns_structured_suggestion() {
+        let runtime = tokio::runtime::Runtime::new().expect("runtime");
+        let sandbox = McpSandbox::new();
+        let context = runtime.block_on(sandbox.context_with_fake_codex(
+            r#"{
+                    "name":"Olive Bomber Jacket",
+                    "category":"Outerwear",
+                    "subcategory":"Bomber Jacket",
+                    "brand":null,
+                    "size":null,
+                    "color_primary":"Olive",
+                    "color_secondary":null,
+                    "material":"Nylon",
+                    "season":"Fall",
+                    "formality":"Casual",
+                    "status":null,
+                    "notes":"Short zip-front bomber jacket.",
+                    "summary":"The image appears to show an olive bomber jacket.",
+                    "warnings":[]
+                }"#,
+        ));
+        let image_path = sandbox.root.join("sample.jpg");
+        fs::write(&image_path, b"fake-image-bytes").expect("write sample image");
+
+        let mut server = initialized_server(context);
+        let response = runtime.block_on(server.handle_line(&format!(
+            r#"{{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{{"name":"wardrobe.analyze_item_photo","arguments":{{"image_path":"{}"}}}}}}"#,
+            image_path.display()
+        )));
+
+        assert_eq!(
+            response[0]["result"]["structuredContent"]["suggestion"]["name"],
+            "Olive Bomber Jacket"
+        );
+        assert_eq!(
+            response[0]["result"]["structuredContent"]["suggestion"]["category"],
+            "Outerwear"
+        );
+    }
+
     fn initialized_server(context: AppContext) -> McpServer {
         let mut server = McpServer::new(context);
         let runtime = tokio::runtime::Runtime::new().expect("runtime");
@@ -1321,6 +1396,46 @@ mod tests {
             init_app(&config).await.expect("initialize database");
             open_context(config).await.expect("open app context")
         }
+
+        async fn context_with_fake_codex(&self, payload: &str) -> AppContext {
+            let config = AppConfig {
+                host: DEFAULT_HOST.to_string(),
+                port: DEFAULT_PORT,
+                data_dir: self.data_dir.clone(),
+            };
+
+            init_app(&config).await.expect("initialize database");
+
+            let layout = AppLayout::from_data_dir(config.data_dir.clone());
+            let repository = SqliteWardrobeRepository::new(layout.database_file.clone());
+            let script_path = write_fake_codex_script(&self.root, payload);
+            let service = WardrobeService::new(
+                repository,
+                MediaStorage::new(layout.root.clone()),
+                CodexItemAnalyzer::with_command(layout.root.join("codex"), script_path),
+            );
+
+            AppContext {
+                config,
+                layout,
+                service,
+            }
+        }
+    }
+
+    fn write_fake_codex_script(root: &Path, payload: &str) -> PathBuf {
+        let script_path = root.join("fake-codex.sh");
+        let script = format!(
+            "#!/bin/sh\noutput=\"\"\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--output-last-message\" ]; then\n    output=\"$2\"\n    shift 2\n    continue\n  fi\n  shift\n done\nprintf '%s' '{}' > \"$output\"\n",
+            payload.replace('\'', "'\"'\"'")
+        );
+        fs::write(&script_path, script).expect("write fake codex script");
+        let mut permissions = fs::metadata(&script_path)
+            .expect("script metadata")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&script_path, permissions).expect("chmod fake codex script");
+        script_path
     }
 
     impl Drop for McpSandbox {

@@ -75,7 +75,33 @@ struct WardrobeItem: Codable, Equatable, Identifiable {
 struct CreateItemRequest: Encodable, Equatable {
     let name: String
     let category: String?
+    let subcategory: String?
     let brand: String?
+    let size: String?
+    let colorPrimary: String?
+    let colorSecondary: String?
+    let material: String?
+    let season: String?
+    let formality: String?
+    let status: String?
+    let currentLocationID: String?
+    let notes: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case category
+        case subcategory
+        case brand
+        case size
+        case colorPrimary = "color_primary"
+        case colorSecondary = "color_secondary"
+        case material
+        case season
+        case formality
+        case status
+        case currentLocationID = "current_location_id"
+        case notes
+    }
 }
 
 struct ItemsListResponse: Decodable, Equatable {
@@ -125,6 +151,44 @@ struct ItemMediaRecord: Codable, Equatable, Identifiable {
 
 struct ItemMediaListResponse: Decodable, Equatable {
     let media: [ItemMediaRecord]
+}
+
+struct ItemPhotoAnalysisSuggestion: Codable, Equatable {
+    let name: String?
+    let category: String?
+    let subcategory: String?
+    let brand: String?
+    let size: String?
+    let colorPrimary: String?
+    let colorSecondary: String?
+    let material: String?
+    let season: String?
+    let formality: String?
+    let status: String?
+    let notes: String?
+    let summary: String
+    let warnings: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case category
+        case subcategory
+        case brand
+        case size
+        case colorPrimary = "color_primary"
+        case colorSecondary = "color_secondary"
+        case material
+        case season
+        case formality
+        case status
+        case notes
+        case summary
+        case warnings
+    }
+}
+
+struct ItemPhotoAnalysisResponse: Decodable, Equatable {
+    let suggestion: ItemPhotoAnalysisSuggestion
 }
 
 struct PhysicalTagRecord: Codable, Equatable, Identifiable {

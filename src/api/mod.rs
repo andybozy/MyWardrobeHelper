@@ -8,9 +8,10 @@ use serde_json::{Value, json};
 
 use crate::app::AppContext;
 use crate::domain::{
-    Item, ItemFilter, ItemMedia, Location, MoveItemInput, Movement, NewItem, NewItemMediaInput,
-    NewLocation, NewPhysicalTag, NewTrip, NewTripItem, PhysicalTag, ResolvePhysicalTagInput,
-    ResolvedPhysicalTag, Trip, TripItem, UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
+    AnalyzeItemPhotoInput, Item, ItemFilter, ItemMedia, ItemPhotoAnalysisSuggestion, Location,
+    MoveItemInput, Movement, NewItem, NewItemMediaInput, NewLocation, NewPhysicalTag, NewTrip,
+    NewTripItem, PhysicalTag, ResolvePhysicalTagInput, ResolvedPhysicalTag, Trip, TripItem,
+    UpdateItemInput, UpdateTripInput, UpdateTripItemInput,
 };
 use crate::error::AppError;
 
@@ -61,6 +62,11 @@ struct PhysicalTagsListResponse {
 #[derive(Debug, Serialize)]
 struct ItemMediaListResponse {
     media: Vec<ItemMediaResponse>,
+}
+
+#[derive(Debug, Serialize)]
+struct ItemPhotoAnalysisResponse {
+    suggestion: ItemPhotoAnalysisSuggestion,
 }
 
 #[derive(Debug, Serialize)]
@@ -313,6 +319,7 @@ pub fn router(context: AppContext) -> Router {
         .route("/health", get(health_handler))
         .route("/server-info", get(server_info_handler))
         .route("/items", get(list_items_handler).post(create_item_handler))
+        .route("/items/analyze-photo", post(analyze_item_photo_handler))
         .route(
             "/items/{id}",
             get(get_item_handler).patch(update_item_handler),
@@ -631,6 +638,21 @@ async fn upload_item_media_handler(
         StatusCode::CREATED,
         Json(ItemMediaListResponse { media: created }),
     ))
+}
+
+async fn analyze_item_photo_handler(
+    State(state): State<ApiState>,
+    multipart: Multipart,
+) -> Result<Json<ItemPhotoAnalysisResponse>, ApiError> {
+    let upload = read_analysis_upload(multipart).await?;
+    let suggestion = state
+        .context
+        .service
+        .analyze_item_photo(upload)
+        .await
+        .map_err(ApiError::from)?;
+
+    Ok(Json(ItemPhotoAnalysisResponse { suggestion }))
 }
 
 async fn list_locations_handler(
@@ -1123,6 +1145,49 @@ fn item_related_error(item_id: &str) -> impl Fn(AppError) -> ApiError + '_ {
     }
 }
 
+async fn read_analysis_upload(mut multipart: Multipart) -> Result<AnalyzeItemPhotoInput, ApiError> {
+    while let Some(field) = multipart.next_field().await.map_err(|_| {
+        ApiError::bad_request(
+            "INVALID_MULTIPART",
+            "Multipart upload could not be parsed".to_string(),
+            None,
+        )
+    })? {
+        if field.name().unwrap_or_default() != "file" {
+            continue;
+        }
+
+        let mime_type = field
+            .content_type()
+            .map(str::to_string)
+            .unwrap_or_else(|| "application/octet-stream".to_string());
+        let original_filename = field.file_name().map(str::to_string);
+        let bytes = field.bytes().await.map_err(|_| {
+            ApiError::bad_request(
+                "INVALID_MULTIPART",
+                "Uploaded image bytes could not be read".to_string(),
+                None,
+            )
+        })?;
+
+        if bytes.is_empty() {
+            continue;
+        }
+
+        return Ok(AnalyzeItemPhotoInput {
+            original_filename,
+            mime_type,
+            bytes: bytes.to_vec(),
+        });
+    }
+
+    Err(ApiError::bad_request(
+        "NO_IMAGE_FILE",
+        "One image file is required for photo analysis".to_string(),
+        None,
+    ))
+}
+
 fn trip_related_error(trip_id: &str) -> impl Fn(AppError) -> ApiError + '_ {
     move |error| match error {
         AppError::InvalidArgument(message)
@@ -1177,6 +1242,8 @@ impl IntoResponse for ApiError {
 mod tests {
     use std::env;
     use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -1185,8 +1252,11 @@ mod tests {
     use serde_json::{Value, json};
     use tower::ServiceExt;
 
-    use crate::app::{init_app, open_context};
+    use crate::app::{AppContext, AppLayout, init_app, open_context};
     use crate::config::{AppConfig, DEFAULT_HOST, DEFAULT_PORT};
+    use crate::infra::{CodexItemAnalyzer, MediaStorage};
+    use crate::repositories::SqliteWardrobeRepository;
+    use crate::services::WardrobeService;
 
     use super::*;
 
@@ -1566,6 +1636,61 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn item_photo_analysis_route_returns_suggestion() {
+        let sandbox = ApiSandbox::new();
+        let app = router(
+            sandbox
+                .context_with_fake_codex(
+                    r#"{
+                        "name":"Camel Wool Coat",
+                        "category":"Outerwear",
+                        "subcategory":"Coat",
+                        "brand":null,
+                        "size":null,
+                        "color_primary":"Camel",
+                        "color_secondary":null,
+                        "material":"Wool",
+                        "season":"Winter",
+                        "formality":"Smart Casual",
+                        "status":null,
+                        "notes":"Long wool overcoat.",
+                        "summary":"The image appears to show a camel wool coat.",
+                        "warnings":[]
+                    }"#,
+                )
+                .await,
+        );
+
+        let boundary = "analysis-boundary";
+        let body = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"coat.jpg\"\r\nContent-Type: image/jpeg\r\n\r\nfake-image-bytes\r\n--{boundary}--\r\n"
+        );
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/items/analyze-photo")
+                    .header(
+                        "content-type",
+                        format!("multipart/form-data; boundary={boundary}"),
+                    )
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .expect("analysis route response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_json(response.into_body()).await;
+        assert_eq!(body["suggestion"]["name"], "Camel Wool Coat");
+        assert_eq!(body["suggestion"]["category"], "Outerwear");
+        assert_eq!(
+            body["suggestion"]["summary"],
+            "The image appears to show a camel wool coat."
+        );
+    }
+
+    #[tokio::test]
     async fn location_routes_support_create_list_and_get() {
         let sandbox = ApiSandbox::new();
         let app = router(sandbox.context().await);
@@ -1900,6 +2025,46 @@ mod tests {
             init_app(&config).await.expect("initialize database");
             open_context(config).await.expect("open app context")
         }
+
+        async fn context_with_fake_codex(&self, payload: &str) -> AppContext {
+            let config = AppConfig {
+                host: DEFAULT_HOST.to_string(),
+                port: DEFAULT_PORT,
+                data_dir: self.data_dir.clone(),
+            };
+
+            init_app(&config).await.expect("initialize database");
+
+            let layout = AppLayout::from_data_dir(config.data_dir.clone());
+            let repository = SqliteWardrobeRepository::new(layout.database_file.clone());
+            let script_path = write_fake_codex_script(&self.root, payload);
+            let service = WardrobeService::new(
+                repository,
+                MediaStorage::new(layout.root.clone()),
+                CodexItemAnalyzer::with_command(layout.root.join("codex"), script_path),
+            );
+
+            AppContext {
+                config,
+                layout,
+                service,
+            }
+        }
+    }
+
+    fn write_fake_codex_script(root: &Path, payload: &str) -> PathBuf {
+        let script_path = root.join("fake-codex.sh");
+        let script = format!(
+            "#!/bin/sh\noutput=\"\"\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--output-last-message\" ]; then\n    output=\"$2\"\n    shift 2\n    continue\n  fi\n  shift\n done\nprintf '%s' '{}' > \"$output\"\n",
+            payload.replace('\'', "'\"'\"'")
+        );
+        fs::write(&script_path, script).expect("write fake codex script");
+        let mut permissions = fs::metadata(&script_path)
+            .expect("script metadata")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&script_path, permissions).expect("chmod fake codex script");
+        script_path
     }
 
     impl Drop for ApiSandbox {

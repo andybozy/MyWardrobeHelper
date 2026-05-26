@@ -81,6 +81,31 @@ pub struct NewItemMediaInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnalyzeItemPhotoInput {
+    pub original_filename: Option<String>,
+    pub mime_type: String,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ItemPhotoAnalysisSuggestion {
+    pub name: Option<String>,
+    pub category: Option<String>,
+    pub subcategory: Option<String>,
+    pub brand: Option<String>,
+    pub size: Option<String>,
+    pub color_primary: Option<String>,
+    pub color_secondary: Option<String>,
+    pub material: Option<String>,
+    pub season: Option<String>,
+    pub formality: Option<String>,
+    pub status: Option<String>,
+    pub notes: Option<String>,
+    pub summary: String,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Location {
     pub id: String,
     pub name: String,

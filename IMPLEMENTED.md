@@ -336,3 +336,23 @@ Acceptance criteria met:
 - The README exposes the guide clearly.
 Notes:
 - This section is documentation-only and does not change runtime behavior.
+
+## SEC-022 - Codex-bin photo analysis and realtime item autocomplete
+Completed: 2026-05-26
+Summary:
+- Added a backend-owned photo-analysis integration that shells out to the local `codex` CLI with image input and a strict output schema.
+- Added one canonical structured suggestion shape and reused it across the backend service layer, JSON API, web item form, iOS create flow, and MCP.
+- Added realtime browser-side item-form prefilling plus iOS photo-based prefilling during item creation.
+- Updated `doctor`, README, docs, and OpenAPI so the local Codex dependency and the new import surface are explicit.
+Acceptance criteria met:
+- The backend exposes a shared item-photo analysis path without duplicating business logic in transports.
+- The browser item form can analyze a photo and prefill the editable item fields.
+- The iOS create-item flow can analyze one selected photo and prefill the same field set.
+- The JSON API exposes a documented item-photo analysis route with a stable response shape.
+- MCP exposes an item-photo analysis tool backed by the same backend service.
+- `doctor` reports whether the local `codex` binary integration is ready.
+- Docs and OpenAPI are updated.
+- Relevant backend checks and iOS compile validation pass.
+Notes:
+- This section depends on the backend machine having a working local `codex` CLI login.
+- The structured final message written by `codex` is treated as the source of truth, not noisy stdout/stderr.

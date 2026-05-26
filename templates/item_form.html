@@ -10,6 +10,23 @@
 </section>
 
 <section class="panel-grid is-status">
+    <article class="panel">
+        <h3>Photo Analysis</h3>
+        <p class="empty-state">Select an item photo and let the local Codex integration suggest fields for this form before saving.</p>
+        <form id="item-photo-analysis-form" class="upload-form" data-analysis-endpoint="{{ analysis_api_url }}">
+            <label>
+                <span>Photo</span>
+                <input id="item-photo-analysis-input" type="file" name="file" accept="image/*" required>
+            </label>
+            <button type="submit">Analyze photo</button>
+        </form>
+        <p id="item-photo-analysis-status" class="empty-state">Choose an image to prefill the item card.</p>
+        <ul id="item-photo-analysis-warnings" class="record-list"></ul>
+        <noscript>
+            <p class="empty-state">Photo analysis needs local JavaScript enabled in the browser.</p>
+        </noscript>
+    </article>
+
     <article class="panel wide-panel">
         <form method="post" action="{{ action_url }}" class="item-form">
             <div class="form-grid">
@@ -69,4 +86,8 @@
         </form>
     </article>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/assets/item-analysis.js" defer></script>
 {% endblock %}

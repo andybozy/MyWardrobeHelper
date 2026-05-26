@@ -9,7 +9,7 @@ use crate::config::AppConfig;
 use crate::db;
 use crate::domain::{Item, ItemMedia, Location, Movement, PhysicalTag, Trip, TripItem};
 use crate::error::{AppError, AppResult, io_error, io_error_path};
-use crate::infra::MediaStorage;
+use crate::infra::{CodexItemAnalyzer, MediaStorage};
 use crate::repositories::SqliteWardrobeRepository;
 use crate::services::WardrobeService;
 
@@ -182,7 +182,11 @@ pub async fn open_context(config: AppConfig) -> AppResult<AppContext> {
     ensure_schema_ready(&layout).await?;
 
     let repository = SqliteWardrobeRepository::new(layout.database_file.clone());
-    let service = WardrobeService::new(repository, MediaStorage::new(layout.root.clone()));
+    let service = WardrobeService::new(
+        repository,
+        MediaStorage::new(layout.root.clone()),
+        CodexItemAnalyzer::new(layout.root.join("codex")),
+    );
 
     Ok(AppContext {
         config,
@@ -304,23 +308,42 @@ pub async fn doctor(config: &AppConfig) -> DoctorReport {
     }
 
     match open_context(config.clone()).await {
-        Ok(context) => match context.service.health().await {
-            Ok(health) => checks.push(pass(
+        Ok(context) => {
+            match context.service.health().await {
+                Ok(health) => checks.push(pass(
+                    "service_health",
+                    format!(
+                        "service layer can read wardrobe counts (items: {}, locations: {}, trips: {})",
+                        health.item_count, health.location_count, health.trip_count
+                    ),
+                )),
+                Err(error) => checks.push(fail(
+                    "service_health",
+                    format!("service layer health check failed: {error}"),
+                )),
+            }
+
+            match context.service.codex_item_analysis_status().await {
+                Ok(message) => checks.push(pass(
+                    "codex_analysis",
+                    format!("codex photo analysis is available: {message}"),
+                )),
+                Err(error) => checks.push(warn(
+                    "codex_analysis",
+                    format!("codex photo analysis is not ready: {error}"),
+                )),
+            }
+        }
+        Err(error) => {
+            checks.push(fail(
                 "service_health",
-                format!(
-                    "service layer can read wardrobe counts (items: {}, locations: {}, trips: {})",
-                    health.item_count, health.location_count, health.trip_count
-                ),
-            )),
-            Err(error) => checks.push(fail(
-                "service_health",
-                format!("service layer health check failed: {error}"),
-            )),
-        },
-        Err(error) => checks.push(fail(
-            "service_health",
-            format!("app context could not open the shared service layer: {error}"),
-        )),
+                format!("app context could not open the shared service layer: {error}"),
+            ));
+            checks.push(warn(
+                "codex_analysis",
+                format!("codex photo analysis readiness check skipped: {error}"),
+            ));
+        }
     }
 
     checks.push(pass(
@@ -520,6 +543,14 @@ fn check_writable_directory(label: &'static str, path: &Path) -> DoctorCheck {
 fn pass(label: &'static str, message: String) -> DoctorCheck {
     DoctorCheck {
         status: CheckStatus::Pass,
+        label,
+        message,
+    }
+}
+
+fn warn(label: &'static str, message: String) -> DoctorCheck {
+    DoctorCheck {
+        status: CheckStatus::Warn,
         label,
         message,
     }

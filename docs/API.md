@@ -6,6 +6,7 @@ The JSON API foundation is available under `/api/v1`. It currently covers:
 
 - health and runtime info
 - item list/create/get/update
+- item photo analysis for field suggestions
 - item move and movement history
 - item media list/upload
 - location list/create/get
@@ -35,6 +36,7 @@ Items:
 
 - `GET /api/v1/items`
 - `POST /api/v1/items`
+- `POST /api/v1/items/analyze-photo`
 - `GET /api/v1/items/:id`
 - `PATCH /api/v1/items/:id`
 - `POST /api/v1/items/:id/move`
@@ -183,6 +185,37 @@ Response: `200 OK`
       "created_at": "2026-05-25 18:59:01"
     }
   ]
+}
+```
+
+`POST /api/v1/items/analyze-photo`
+
+Request:
+
+- content type: `multipart/form-data`
+- field: `file`
+- accepted input: one image file
+
+Response: `200 OK`
+
+```json
+{
+  "suggestion": {
+    "name": "Camel Wool Coat",
+    "category": "Outerwear",
+    "subcategory": "Coat",
+    "brand": null,
+    "size": null,
+    "color_primary": "Camel",
+    "color_secondary": null,
+    "material": "Wool",
+    "season": "Winter",
+    "formality": "Smart Casual",
+    "status": null,
+    "notes": "Long wool overcoat.",
+    "summary": "The image appears to show a camel wool coat.",
+    "warnings": []
+  }
 }
 ```
 
@@ -356,6 +389,7 @@ Current error codes include:
 - `INVALID_REQUEST`
 - `USE_MOVE_ENDPOINT`
 - `INVALID_MULTIPART`
+- `NO_IMAGE_FILE`
 - `NO_MEDIA_FILES`
 - `ITEM_NOT_FOUND`
 - `LOCATION_NOT_FOUND`
@@ -395,6 +429,16 @@ Backend behavior:
 - stores files under `media/items/<item-id>/`
 - persists metadata in SQLite
 - returns the created media records
+
+`POST /api/v1/items/analyze-photo` accepts `multipart/form-data` with:
+
+- one `file` part
+
+Backend behavior:
+
+- accepts `image/*`
+- runs the local `codex` CLI from the backend process
+- returns conservative field suggestions for item-card autocomplete
 
 Current limitations:
 

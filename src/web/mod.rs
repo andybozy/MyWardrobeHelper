@@ -296,6 +296,7 @@ struct ItemFormTemplate {
     heading: &'static str,
     submit_label: &'static str,
     action_url: String,
+    analysis_api_url: String,
     item: ItemFormView,
 }
 
@@ -424,6 +425,10 @@ fn router(context: AppContext) -> Router {
         )
         .route("/status", get(status_handler))
         .route("/assets/app.css", get(stylesheet_handler))
+        .route(
+            "/assets/item-analysis.js",
+            get(item_analysis_script_handler),
+        )
         .route("/media/{*path}", get(media_file_handler))
         .with_state(WebState {
             context: context.clone(),
@@ -590,6 +595,7 @@ async fn item_new_handler(State(state): State<WebState>) -> Result<Html<String>,
         heading: "Create Item",
         submit_label: "Create item",
         action_url: "/items".to_string(),
+        analysis_api_url: "/api/v1/items/analyze-photo".to_string(),
         item: empty_item_form(),
     };
 
@@ -712,6 +718,7 @@ async fn item_edit_handler(
         heading: "Edit Item",
         submit_label: "Save changes",
         action_url: format!("/items/{}/edit", item.id),
+        analysis_api_url: "/api/v1/items/analyze-photo".to_string(),
         item: item_form_view(&item),
     };
 
@@ -1157,6 +1164,16 @@ async fn stylesheet_handler() -> impl IntoResponse {
     )
 }
 
+async fn item_analysis_script_handler() -> impl IntoResponse {
+    (
+        [(
+            header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
+        include_str!("../../assets/item-analysis.js"),
+    )
+}
+
 async fn media_file_handler(
     State(state): State<WebState>,
     Path(path): Path<String>,
@@ -1569,6 +1586,33 @@ mod tests {
 
         assert!(html.contains("Summer Blazer"));
         assert!(!html.contains("Winter Coat"));
+    }
+
+    #[tokio::test]
+    async fn item_form_page_includes_photo_analysis_assets() {
+        let sandbox = WebSandbox::new();
+        let app = router(sandbox.context().await);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/items/new")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("item form response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read body");
+        let html = String::from_utf8(body.to_vec()).expect("valid utf-8 html");
+
+        assert!(html.contains("item-photo-analysis-form"));
+        assert!(html.contains("/api/v1/items/analyze-photo"));
+        assert!(html.contains("/assets/item-analysis.js"));
     }
 
     #[tokio::test]

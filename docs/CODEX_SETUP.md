@@ -38,6 +38,18 @@ If your data directory is not `.data`, edit the `args` line in `.codex/config.to
 
 The default no-argument runtime auto-initializes missing local state, binds the web/API stack for LAN access, and exposes the shared MCP listener on `127.0.0.1:<http-port + 1>`.
 
+## Local codex binary integration
+
+The backend now also uses the local `codex` CLI for image-based item-field suggestions.
+
+That means the machine running the backend should satisfy:
+
+- `codex doctor` succeeds well enough to show configured auth
+- `codex login status` succeeds
+- the `codex` binary is available on `PATH`
+
+The backend shells out to `codex exec --image ... --output-schema ...` and treats the structured final message as the source of truth for field suggestions.
+
 ## Manual development workflow
 
 - Run backend checks with `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test --all-features`.

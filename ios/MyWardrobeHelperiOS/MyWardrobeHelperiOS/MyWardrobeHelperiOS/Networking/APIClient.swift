@@ -91,6 +91,47 @@ struct APIClient {
         return item
     }
 
+    func analyzeItemPhoto(
+        _ upload: PendingMediaUpload,
+        baseURL: URL
+    ) async throws -> ItemPhotoAnalysisSuggestion {
+        var url = baseURL
+        ["api", "v1", "items", "analyze-photo"].forEach { segment in
+            url.appendPathComponent(segment)
+        }
+
+        let boundary = "MyWardrobeHelperAnalyzeBoundary-\(UUID().uuidString)"
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = multipartBody(for: upload, boundary: boundary)
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIClientError.invalidResponse
+            }
+
+            guard 200 ..< 300 ~= httpResponse.statusCode else {
+                if let serverError = try? JSONDecoder().decode(ServerErrorEnvelope.self, from: data) {
+                    throw APIClientError.serverMessage(serverError.error.message)
+                }
+                throw APIClientError.badStatusCode(httpResponse.statusCode)
+            }
+
+            do {
+                let payload = try JSONDecoder().decode(ItemPhotoAnalysisResponse.self, from: data)
+                return payload.suggestion
+            } catch {
+                throw APIClientError.decoding(error)
+            }
+        } catch let error as APIClientError {
+            throw error
+        } catch {
+            throw APIClientError.transport(error)
+        }
+    }
+
     func fetchItemMedia(itemID: String, baseURL: URL) async throws -> [ItemMediaRecord] {
         let response: ItemMediaListResponse = try await sendRequest(
             pathSegments: ["api", "v1", "items", itemID, "media"],
@@ -170,5 +211,19 @@ struct APIClient {
         } catch {
             throw APIClientError.transport(error)
         }
+    }
+
+    private func multipartBody(for upload: PendingMediaUpload, boundary: String) -> Data {
+        var body = Data()
+        let lineBreak = "\r\n"
+
+        body.append(Data("--\(boundary)\(lineBreak)".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"\(upload.fileName)\"\(lineBreak)".utf8))
+        body.append(Data("Content-Type: \(upload.mimeType)\(lineBreak)\(lineBreak)".utf8))
+        body.append(upload.data)
+        body.append(Data(lineBreak.utf8))
+        body.append(Data("--\(boundary)--\(lineBreak)".utf8))
+
+        return body
     }
 }

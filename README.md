@@ -60,6 +60,10 @@ openapi/              Generated or hand-authored API contract files
 tests/                Backend integration and smoke tests
 ```
 
+## Guide
+
+For a GitHub-friendly overview that covers the backend, web app, iOS app, API, MCP, commands, and verification workflow, start with [docs/GITHUB_GUIDE.md](docs/GITHUB_GUIDE.md).
+
 ## Runtime commands
 
 Run the backend binary with:

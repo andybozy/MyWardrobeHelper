@@ -322,3 +322,17 @@ Acceptance criteria met:
 - `docs/IOS.md` documents the working validation path for this environment.
 Notes:
 - A fully signed terminal `xcodebuild` still depends on local signing/keychain state; compile-only device validation succeeded with `CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO`.
+
+## SEC-021 - GitHub-facing project guide
+Completed: 2026-05-26
+Summary:
+- Added a single GitHub-friendly guide that explains the backend, web app, iOS app, API, MCP integration, startup flow, storage layout, and verification workflow together.
+- Kept the guide high-level and linked it to the deeper surface-specific docs already maintained in the repository.
+- Linked the new guide from `README.md` so repository visitors have an immediate entry point.
+Acceptance criteria met:
+- The repository now has one concise onboarding guide for GitHub readers.
+- The guide covers the backend, browser UI, iOS app, API, and MCP surfaces together.
+- The guide points readers to the more detailed docs for each surface.
+- The README exposes the guide clearly.
+Notes:
+- This section is documentation-only and does not change runtime behavior.
